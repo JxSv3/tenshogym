@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TenshoGym - Iniciar sesión</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="login-page">
+
+<div class="login-card">
+  <div class="brand-login">
+    <span class="logo-dot"></span>
+    TenshoGym
+  </div>
+
+  <div id="loginError" class="login-error"></div>
+
+  <div class="form-group">
+    <label>Correo electrónico</label>
+    <input type="email" id="loginEmail" placeholder="correo@tenshogym.com" onkeydown="if(event.key==='Enter') iniciarSesion()">
+  </div>
+
+  <div class="form-group">
+    <label>Contraseña</label>
+    <input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter') iniciarSesion()">
+  </div>
+
+  <button class="btn btn-primary btn-block" onclick="iniciarSesion()" id="btnLogin">Iniciar sesión</button>
+</div>
+
+<script src="supabase-config.js"></script>
+<script>
+async function iniciarSesion() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorBox = document.getElementById('loginError');
+  const btn = document.getElementById('btnLogin');
+
+  errorBox.style.display = 'none';
+
+  if (!email || !password) {
+    errorBox.textContent = 'Completa correo y contraseña';
+    errorBox.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Ingresando...';
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    errorBox.textContent = 'Correo o contraseña incorrectos';
+    errorBox.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Iniciar sesión';
+    return;
+  }
+
+  window.location.href = 'index.html';
+}
+
+// Si ya hay sesión activa, ir directo al dashboard
+(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) window.location.href = 'index.html';
+})();
+</script>
+
+</body>
+</html>

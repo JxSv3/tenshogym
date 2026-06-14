@@ -393,9 +393,15 @@
 </div>
 
 <script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-renderNavbar('clientes');
+(async () => {
+  const perfil = await requireAuth(['admin', 'recepcion']);
+  if (!perfil) return;
+  renderNavbar('clientes', perfil);
+  init();
+})();
 
 let TODOS_CLIENTES = [];
 let PLANES_BASE = [];
@@ -905,7 +911,6 @@ async function guardarPago() {
   await cargarPagosCliente(CLIENTE_ACTUAL.id);
 }
 
-init();
 </script>
 
 </body>

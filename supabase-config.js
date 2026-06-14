@@ -10,7 +10,14 @@
 const SUPABASE_URL = 'https://wjwfugwgbzfhouhkamoo.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zTo1oh7WoKRvUJxFvztF_A_2GV1vvSN';
 
-window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const _supabaseLib = window.supabase;
+window.supabase = _supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Cliente secundario (sesión independiente) - usado SOLO para crear nuevos
+// usuarios desde usuarios.html sin afectar la sesión del administrador.
+const supabaseAdmin = _supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, storageKey: 'tenshogym-admin-temp' }
+});
 
 // ============================================================
 // CONSTANTES

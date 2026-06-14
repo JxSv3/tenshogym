@@ -655,3 +655,53 @@ tbody tr:last-child td {
   border-radius: 999px;
   transition: width 0.3s ease;
 }
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: var(--shadow);
+}
+
+.login-card .brand-login {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.4rem;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.login-card .brand-login .logo-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+.login-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+  display: none;
+}

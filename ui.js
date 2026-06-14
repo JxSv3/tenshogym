@@ -2,16 +2,20 @@
 // TenshoGym - UI compartida (Navbar)
 // ============================================================
 
-function renderNavbar(active) {
+function renderNavbar(active, perfil) {
   const links = [
-    { href: 'index.html', label: 'Dashboard', key: 'dashboard' },
-    { href: 'clientes.html', label: 'Clientes', key: 'clientes' },
-    { href: 'membresias.html', label: 'Membresías', key: 'membresias' },
-    { href: 'asistencia.html', label: 'Asistencia', key: 'asistencia' },
-    { href: 'respaldo.html', label: 'Respaldos', key: 'respaldo' }
+    { href: 'index.html', label: 'Dashboard', key: 'dashboard', roles: ['admin', 'recepcion'] },
+    { href: 'clientes.html', label: 'Clientes', key: 'clientes', roles: ['admin', 'recepcion'] },
+    { href: 'membresias.html', label: 'Membresías', key: 'membresias', roles: ['admin', 'recepcion'] },
+    { href: 'asistencia.html', label: 'Asistencia', key: 'asistencia', roles: ['admin', 'recepcion'] },
+    { href: 'respaldo.html', label: 'Respaldos', key: 'respaldo', roles: ['admin'] },
+    { href: 'usuarios.html', label: 'Usuarios', key: 'usuarios', roles: ['admin'] }
   ];
 
-  const linksHtml = links.map(l => `
+  const rol = perfil ? perfil.rol : 'recepcion';
+  const visibles = links.filter(l => l.roles.includes(rol));
+
+  const linksHtml = visibles.map(l => `
     <a href="${l.href}" class="${l.key === active ? 'active' : ''}">${l.label}</a>
   `).join('');
 
@@ -25,6 +29,8 @@ function renderNavbar(active) {
     <div class="nav-links">
       ${linksHtml}
       <button id="theme-toggle-btn" class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">☀️</button>
+      ${perfil ? `<span class="text-secondary" style="font-size:0.82rem; margin-left:4px">${perfil.nombre}</span>` : ''}
+      <button class="btn btn-secondary btn-sm" onclick="cerrarSesion()">Salir</button>
     </div>
   `;
 

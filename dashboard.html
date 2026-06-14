@@ -107,9 +107,15 @@
 </div>
 
 <script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-renderNavbar('dashboard');
+(async () => {
+  const perfil = await requireAuth(['admin', 'recepcion']);
+  if (!perfil) return;
+  renderNavbar('dashboard', perfil);
+  cargarDashboard();
+})();
 
 async function cargarDashboard() {
   const sucursalFiltro = document.getElementById('filtroSucursal').value; // 'todas' | '1' | '2'
@@ -130,7 +136,7 @@ async function cargarDashboard() {
   const clientesSur = (todosClientes || []).filter(c => c.sucursal_id === 2 && c.estado === 'activo').length;
 
   if (sucursalFiltro === 'todas') {
-    document.getElementById('statClientesSub').textContent = `Norte: ${clientesNorte} · Sur: ${clientesSur}`;
+    document.getElementById('statClientesSub').textContent = `Calderon: ${clientesNorte} · Marianas: ${clientesSur}`;
   } else {
     document.getElementById('statClientesSub').textContent = sucursalFiltro === '1'
       ? `Sucursal Calderon`
@@ -153,7 +159,7 @@ async function cargarDashboard() {
   const ingresosSur = (pagosMesTodos || []).filter(p => p.sucursal_id === 2).reduce((s,p) => s + Number(p.monto), 0);
 
   if (sucursalFiltro === 'todas') {
-    document.getElementById('statIngresosSub').textContent = `Norte: ${formatMoney(ingresosNorte)} · Sur: ${formatMoney(ingresosSur)}`;
+    document.getElementById('statIngresosSub').textContent = `Calderon: ${formatMoney(ingresosNorte)} · Marianas: ${formatMoney(ingresosSur)}`;
   } else {
     document.getElementById('statIngresosSub').textContent = 'Este mes';
   }
@@ -219,7 +225,7 @@ async function cargarDashboard() {
   const asistNorte = (asistTodas || []).filter(a => a.sucursal_id === 1).length;
   const asistSur = (asistTodas || []).filter(a => a.sucursal_id === 2).length;
   if (sucursalFiltro === 'todas') {
-    document.getElementById('statAsistenciasSub').textContent = `Norte: ${asistNorte} · Sur: ${asistSur}`;
+    document.getElementById('statAsistenciasSub').textContent = `Calderon: ${asistNorte} · Marianas: ${asistSur}`;
   } else {
     document.getElementById('statAsistenciasSub').textContent = 'Hoy';
   }
@@ -270,7 +276,6 @@ function renderResumenSucursal(sucursalId, elementId, data) {
   `;
 }
 
-cargarDashboard();
 </script>
 
 </body>

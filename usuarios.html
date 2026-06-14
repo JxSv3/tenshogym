@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TenshoGym - Usuarios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="page-header">
+    <div>
+      <h1>Usuarios</h1>
+      <p>Gestión de accesos de recepción y administración</p>
+    </div>
+    <button class="btn btn-primary" onclick="abrirNuevoUsuario()">+ Nuevo usuario</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaUsuarios">
+        <tr><td colspan="5"><div class="loading-spinner"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     MODAL: Nuevo Usuario
+     ============================================================ -->
+<div class="modal-overlay" id="modalUsuario">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Nuevo usuario</h2>
+      <button class="modal-close" onclick="closeModal('modalUsuario')">✕</button>
+    </div>
+
+    <div class="form-group">
+      <label>Nombre *</label>
+      <input type="text" id="usuarioNombre" placeholder="Ej. María Pérez">
+    </div>
+
+    <div class="form-group">
+      <label>Correo electrónico *</label>
+      <input type="email" id="usuarioEmail" placeholder="correo@tenshogym.com">
+    </div>
+
+    <div class="form-group">
+      <label>Contraseña *</label>
+      <input type="password" id="usuarioPassword" placeholder="Mínimo 6 caracteres">
+    </div>
+
+    <div class="form-group">
+      <label>Rol *</label>
+      <select id="usuarioRol">
+        <option value="recepcion">Recepción (Dashboard, Clientes, Membresías, Asistencia)</option>
+        <option value="admin">Administrador (acceso total)</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalUsuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearUsuario()">Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
+<script src="ui.js"></script>
+<script>
+(async () => {
+  const perfil = await requireAuth(['admin']);
+  if (!perfil) return;
+  renderNavbar('usuarios', perfil);
+  cargarUsuarios();
+})();
+
+async function cargarUsuarios() {
+  const { data, error } = await supabase.from('perfiles').select('*').order('nombre');
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  const tbody = document.getElementById('tablaUsuarios');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Sin usuarios registrados</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td><strong>${u.nombre}</strong></td>
+      <td>${u.email}</td>
+      <td><span class="badge ${u.rol === 'admin' ? 'badge-info' : 'badge-muted'}">${u.rol === 'admin' ? 'Administrador' : 'Recepción'}</span></td>
+      <td>${u.activo === false ? '<span class="badge badge-danger">Inactivo</span>' : '<span class="badge badge-success">Activo</span>'}</td>
+      <td>
+        <div class="flex-gap">
+          <button class="btn btn-secondary btn-sm" onclick="cambiarRol('${u.id}', '${u.rol === 'admin' ? 'recepcion' : 'admin'}')">
+            Hacer ${u.rol === 'admin' ? 'Recepción' : 'Admin'}
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="cambiarEstado('${u.id}', ${u.activo === false})">
+            ${u.activo === false ? 'Activar' : 'Desactivar'}
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function abrirNuevoUsuario() {
+  document.getElementById('usuarioNombre').value = '';
+  document.getElementById('usuarioEmail').value = '';
+  document.getElementById('usuarioPassword').value = '';
+  document.getElementById('usuarioRol').value = 'recepcion';
+  openModal('modalUsuario');
+}
+
+async function crearUsuario() {
+  const nombre = document.getElementById('usuarioNombre').value.trim();
+  const email = document.getElementById('usuarioEmail').value.trim();
+  const password = document.getElementById('usuarioPassword').value;
+  const rol = document.getElementById('usuarioRol').value;
+
+  if (!nombre || !email || !password) {
+    showToast('Completa todos los campos', 'error');
+    return;
+  }
+  if (password.length < 6) {
+    showToast('La contraseña debe tener al menos 6 caracteres', 'error');
+    return;
+  }
+
+  // Se usa un cliente secundario para no afectar la sesión del administrador
+  const { data, error } = await supabaseAdmin.auth.signUp({ email, password });
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  if (!data.user) { showToast('No se pudo crear el usuario', 'error'); return; }
+
+  const { error: errorPerfil } = await supabase.from('perfiles').insert({
+    id: data.user.id,
+    nombre,
+    email,
+    rol,
+    activo: true
+  });
+
+  if (errorPerfil) { showToast('Error al guardar perfil: ' + errorPerfil.message, 'error'); return; }
+
+  showToast('Usuario creado correctamente');
+  closeModal('modalUsuario');
+  await cargarUsuarios();
+}
+
+async function cambiarRol(id, nuevoRol) {
+  const { error } = await supabase.from('perfiles').update({ rol: nuevoRol }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast('Rol actualizado');
+  await cargarUsuarios();
+}
+
+async function cambiarEstado(id, activar) {
+  const { error } = await supabase.from('perfiles').update({ activo: activar }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast(activar ? 'Usuario activado' : 'Usuario desactivado');
+  await cargarUsuarios();
+}
+</script>
+
+</body>
+</html>

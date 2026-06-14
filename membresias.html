@@ -201,9 +201,15 @@
 </div>
 
 <script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-renderNavbar('membresias');
+(async () => {
+  const perfil = await requireAuth(['admin', 'recepcion']);
+  if (!perfil) return;
+  renderNavbar('membresias', perfil);
+  init();
+})();
 
 let TODAS_MEMBRESIAS = [];
 let PLANES_BASE = [];
@@ -504,8 +510,6 @@ async function cancelarMembresia() {
   closeModal('modalEditar');
   await cargarMembresias();
 }
-
-init();
 </script>
 
 </body>

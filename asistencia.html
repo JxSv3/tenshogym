@@ -106,9 +106,17 @@
 </div>
 
 <script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-renderNavbar('asistencia');
+(async () => {
+  const perfil = await requireAuth(['admin', 'recepcion']);
+  if (!perfil) return;
+  renderNavbar('asistencia', perfil);
+  document.getElementById('filtroFecha').value = hoyISO();
+  cargarClientesBusqueda();
+  cargarHistorial();
+})();
 
 let CLIENTE_SELECCIONADO = null;
 let timeoutBusqueda = null;
@@ -276,10 +284,6 @@ async function cargarHistorial() {
   `).join('');
 }
 
-// Inicializar con la fecha de hoy
-document.getElementById('filtroFecha').value = hoyISO();
-cargarClientesBusqueda();
-cargarHistorial();
 </script>
 
 </body>

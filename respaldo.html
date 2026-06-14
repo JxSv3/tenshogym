@@ -64,9 +64,15 @@
 </div>
 
 <script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-renderNavbar('respaldo');
+(async () => {
+  const perfil = await requireAuth(['admin']);
+  if (!perfil) return;
+  renderNavbar('respaldo', perfil);
+  cargarEspacio();
+})();
 
 const TABLAS_RESPALDO = ['sucursales', 'planes_base', 'clientes', 'membresias', 'pagos', 'asistencias'];
 
@@ -173,8 +179,6 @@ async function restaurarRespaldo() {
   showToast('Respaldo restaurado correctamente');
   await cargarEspacio();
 }
-
-cargarEspacio();
 </script>
 
 </body>
