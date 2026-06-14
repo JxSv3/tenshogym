@@ -72,11 +72,12 @@
           <th>Inicio</th>
           <th>Fin</th>
           <th>Estado</th>
+          <th>Recordatorio</th>
           <th>Acciones</th>
         </tr>
       </thead>
       <tbody id="tablaMembresias">
-        <tr><td colspan="9"><div class="loading-spinner"></div></td></tr>
+        <tr><td colspan="10"><div class="loading-spinner"></div></td></tr>
       </tbody>
     </table>
   </div>
@@ -228,7 +229,7 @@ async function init() {
 async function cargarMembresias() {
   const { data, error } = await supabase
     .from('membresias')
-    .select('*, clientes(id, nombre, apellido, sucursal_id, estado)')
+    .select('*, clientes(id, nombre, apellido, telefono, sucursal_id, estado)')
     .eq('estado', 'activa')
     .order('fecha_fin', { ascending: true });
 
@@ -309,6 +310,7 @@ function renderTabla(lista) {
       <td>${formatDate(m.fecha_inicio)}</td>
       <td>${formatDate(m.fecha_fin)}</td>
       <td>${badgeEstadoMembresia(m.fecha_fin)}</td>
+      <td>${celdaRecordatorio(m)}</td>
       <td>
         <div class="flex-gap">
           <button class="btn btn-primary btn-sm" onclick="abrirRenovar('${m.id}')">Renovar</button>
@@ -319,9 +321,33 @@ function renderTabla(lista) {
   `).join('');
 }
 
-// ============================================================
-// RENOVAR
-// ============================================================
+function celdaRecordatorio(m) {
+  const dias = diasRestantes(m.fecha_fin);
+  if (dias > DIAS_ALERTA_VENCIMIENTO) return '<span class="text-muted">-</span>';
+
+  const link = linkRecordatorioWhatsapp(m.clientes, m);
+  if (!link) return '<span class="badge badge-muted">Sin teléfono</span>';
+
+  if (m.recordatorio_enviado) {
+    return `
+      <div class="flex-gap" style="align-items:center">
+        <span class="badge badge-success">✓ ${formatDate(m.fecha_recordatorio)}</span>
+        <a href="${link}" target="_blank" class="btn btn-secondary btn-sm" onclick="marcarRecordatorio('${m.id}')">↻</a>
+      </div>`;
+  }
+
+  return `<a href="${link}" target="_blank" class="btn btn-gold btn-sm" onclick="marcarRecordatorio('${m.id}')">📲 Avisar</a>`;
+}
+
+async function marcarRecordatorio(membresiaId) {
+  const hoy = hoyISO();
+  await supabase.from('membresias').update({ recordatorio_enviado: true, fecha_recordatorio: hoy }).eq('id', membresiaId);
+  const m = TODAS_MEMBRESIAS.find(x => x.id === membresiaId);
+  if (m) { m.recordatorio_enviado = true; m.fecha_recordatorio = hoy; }
+  filtrarYRenderizar();
+}
+
+
 function abrirRenovar(membresiaId) {
   const m = TODAS_MEMBRESIAS.find(x => x.id === membresiaId);
   if (!m) return;

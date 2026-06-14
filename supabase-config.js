@@ -148,8 +148,26 @@ function updateThemeIcon(theme) {
 }
 
 // ============================================================
-// MODAL HELPERS
+// WHATSAPP - RECORDATORIOS
 // ============================================================
+// Convierte un teléfono local (ej. 0991234567) a formato internacional para wa.me
+function telefonoWhatsapp(telefono) {
+  if (!telefono) return null;
+  let limpio = telefono.replace(/\D/g, '');
+  if (limpio.startsWith('0')) limpio = '593' + limpio.substring(1);
+  else if (!limpio.startsWith('593')) limpio = '593' + limpio;
+  return limpio;
+}
+
+// Genera el link de WhatsApp con mensaje prellenado de recordatorio
+function linkRecordatorioWhatsapp(cliente, membresia) {
+  const numero = telefonoWhatsapp(cliente.telefono);
+  if (!numero) return null;
+  const mensaje = `Hola ${cliente.nombre}, te recordamos que tu membresía "${membresia.nombre_plan}" en TenshoGym vence el ${formatDate(membresia.fecha_fin)}. ¡Te esperamos para renovar! 💪`;
+  return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+}
+
+
 function openModal(id) {
   const overlay = document.getElementById(id);
   if (overlay) overlay.classList.add('active');
