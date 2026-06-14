@@ -7,7 +7,8 @@ function renderNavbar(active) {
     { href: 'index.html', label: 'Dashboard', key: 'dashboard' },
     { href: 'clientes.html', label: 'Clientes', key: 'clientes' },
     { href: 'membresias.html', label: 'Membresías', key: 'membresias' },
-    { href: 'asistencia.html', label: 'Asistencia', key: 'asistencia' }
+    { href: 'asistencia.html', label: 'Asistencia', key: 'asistencia' },
+    { href: 'respaldo.html', label: 'Respaldos', key: 'respaldo' }
   ];
 
   const linksHtml = links.map(l => `

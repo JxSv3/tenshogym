@@ -112,13 +112,21 @@ renderNavbar('asistencia');
 
 let CLIENTE_SELECCIONADO = null;
 let timeoutBusqueda = null;
+let TODOS_CLIENTES_ASIST = [];
+let RESULTADOS_ACTUALES = [];
+
+async function cargarClientesBusqueda() {
+  const { data, error } = await supabase.from('clientes').select('*').eq('estado', 'activo');
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  TODOS_CLIENTES_ASIST = data || [];
+}
 
 // ============================================================
-// BÚSQUEDA DE CLIENTES (autocompletado)
+// BÚSQUEDA DE CLIENTES (autocompletado, por nombre completo o cédula)
 // ============================================================
 function buscarClientes() {
   clearTimeout(timeoutBusqueda);
-  const texto = document.getElementById('buscarCliente').value.trim();
+  const texto = document.getElementById('buscarCliente').value.trim().toLowerCase();
   const resultados = document.getElementById('resultadosBusqueda');
 
   if (texto.length < 2) {
@@ -126,33 +134,29 @@ function buscarClientes() {
     return;
   }
 
-  timeoutBusqueda = setTimeout(async () => {
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('estado', 'activo')
-      .or(`nombre.ilike.%${texto}%,apellido.ilike.%${texto}%,cedula.ilike.%${texto}%`)
-      .limit(10);
+  timeoutBusqueda = setTimeout(() => {
+    RESULTADOS_ACTUALES = TODOS_CLIENTES_ASIST.filter(c =>
+      `${c.nombre} ${c.apellido}`.toLowerCase().includes(texto) ||
+      (c.cedula || '').toLowerCase().includes(texto)
+    ).slice(0, 10);
 
-    if (error) { showToast('Error: ' + error.message, 'error'); return; }
-
-    if (!data || data.length === 0) {
+    if (RESULTADOS_ACTUALES.length === 0) {
       resultados.innerHTML = '<div style="padding:12px" class="text-muted">Sin resultados</div>';
       resultados.style.display = 'block';
       return;
     }
 
-    resultados.innerHTML = data.map(c => `
+    resultados.innerHTML = RESULTADOS_ACTUALES.map((c, i) => `
       <div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color)"
            onmouseover="this.style.background='var(--bg-hover)'"
            onmouseout="this.style.background='transparent'"
-           onclick='seleccionarCliente(${JSON.stringify(c).replace(/'/g, "&apos;")})'>
+           onclick="seleccionarCliente(${i})">
         <strong>${c.nombre} ${c.apellido}</strong>
         <div class="text-muted" style="font-size:0.78rem">${c.cedula || 'Sin cédula'} · ${nombreSucursal(c.sucursal_id)}</div>
       </div>
     `).join('');
     resultados.style.display = 'block';
-  }, 250);
+  }, 200);
 }
 
 // Oculta resultados al hacer click fuera
@@ -162,7 +166,8 @@ document.addEventListener('click', (e) => {
   }
 });
 
-async function seleccionarCliente(cliente) {
+async function seleccionarCliente(indice) {
+  const cliente = RESULTADOS_ACTUALES[indice];
   CLIENTE_SELECCIONADO = cliente;
   document.getElementById('buscarCliente').value = `${cliente.nombre} ${cliente.apellido}`;
   document.getElementById('resultadosBusqueda').style.display = 'none';
@@ -273,6 +278,7 @@ async function cargarHistorial() {
 
 // Inicializar con la fecha de hoy
 document.getElementById('filtroFecha').value = hoyISO();
+cargarClientesBusqueda();
 cargarHistorial();
 </script>
 
