@@ -61,13 +61,13 @@ async function iniciarSesion() {
     return;
   }
 
-  window.location.href = 'index.html';
+  window.location.href = 'dashboard.html';
 }
 
 // Si ya hay sesión activa, ir directo al dashboard
 (async () => {
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) window.location.href = 'index.html';
+  if (session) window.location.href = 'dashboard.html';
 })();
 </script>
 

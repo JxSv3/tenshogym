@@ -4,7 +4,7 @@
 
 function renderNavbar(active, perfil) {
   const links = [
-    { href: 'index.html', label: 'Dashboard', key: 'dashboard', roles: ['admin', 'recepcion'] },
+    { href: 'dashboard.html', label: 'Dashboard', key: 'dashboard', roles: ['admin', 'recepcion'] },
     { href: 'clientes.html', label: 'Clientes', key: 'clientes', roles: ['admin', 'recepcion'] },
     { href: 'membresias.html', label: 'Membresías', key: 'membresias', roles: ['admin', 'recepcion'] },
     { href: 'asistencia.html', label: 'Asistencia', key: 'asistencia', roles: ['admin', 'recepcion'] },
