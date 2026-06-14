@@ -18,8 +18,8 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // IDs de sucursales (deben coincidir con la tabla "sucursales")
 const SUCURSALES = {
-  1: { nombre: 'Sucursal Norte', clase: 'pill-sucursal-1' },
-  2: { nombre: 'Sucursal Sur', clase: 'pill-sucursal-2' }
+  1: { nombre: 'Sucursal Calderon', clase: 'pill-sucursal-1' },
+  2: { nombre: 'Sucursal Marianas', clase: 'pill-sucursal-2' }
 };
 
 // Días para considerar una membresía "por vencer"
