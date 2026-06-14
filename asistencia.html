@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TenshoGym - Asistencia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="page-header">
+    <div>
+      <h1>Control de Asistencia</h1>
+      <p>Registro de ingresos al gimnasio por sucursal</p>
+    </div>
+  </div>
+
+  <!-- Buscador de cliente para check-in -->
+  <div class="card mb-2">
+    <h3>🔍 Registrar ingreso</h3>
+    <div class="form-group" style="position:relative">
+      <label>Buscar cliente por nombre, apellido o cédula</label>
+      <input type="text" id="buscarCliente" placeholder="Escribe para buscar..." oninput="buscarClientes()" autocomplete="off">
+      <div id="resultadosBusqueda" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:var(--radius-sm); margin-top:4px; max-height:280px; overflow-y:auto; z-index:50; box-shadow:var(--shadow)"></div>
+    </div>
+
+    <div id="clienteSeleccionadoCard" style="display:none" class="card mt-1" style="background:var(--bg-tertiary)">
+      <div class="flex-between" style="flex-wrap:wrap; gap:14px">
+        <div>
+          <div style="font-size:1.1rem; font-weight:800" id="selNombre"></div>
+          <div class="text-secondary" style="font-size:0.85rem" id="selCedula"></div>
+          <div class="mt-1" id="selEstadoMembresia"></div>
+        </div>
+        <div class="flex-gap" style="align-items:center">
+          <div class="form-group" style="margin-bottom:0; min-width:170px">
+            <label>Sucursal de ingreso</label>
+            <select id="selSucursal">
+              <option value="1">Sucursal Norte</option>
+              <option value="2">Sucursal Sur</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="registrarIngreso()" style="margin-top:22px">✅ Registrar ingreso</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historial de asistencia -->
+  <div class="card">
+    <div class="flex-between mb-1" style="flex-wrap:wrap; gap:10px">
+      <h3 style="margin:0">📋 Historial de asistencia</h3>
+      <div class="flex-gap">
+        <input type="date" id="filtroFecha" onchange="cargarHistorial()">
+        <select id="filtroSucursalHist" onchange="cargarHistorial()">
+          <option value="todas">Todas las sucursales</option>
+          <option value="1">Sucursal Norte</option>
+          <option value="2">Sucursal Sur</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-3 mb-2">
+      <div class="stat-card">
+        <div class="icon blue">👥</div>
+        <div class="value" id="statTotalDia">-</div>
+        <div class="label">Ingresos en la fecha</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon green">📍</div>
+        <div class="value" id="statNorteDia">-</div>
+        <div class="label">Sucursal Norte</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon gold">📍</div>
+        <div class="value" id="statSurDia">-</div>
+        <div class="label">Sucursal Sur</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Cliente</th>
+            <th>Cédula</th>
+            <th>Sucursal</th>
+          </tr>
+        </thead>
+        <tbody id="tablaHistorial">
+          <tr><td colspan="4"><div class="loading-spinner"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="historialVacio" class="empty-state" style="display:none">
+      <div class="icon">📭</div>
+      <p>No hay asistencias registradas en esta fecha.</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="assets/supabase-config.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+renderNavbar('asistencia');
+
+let CLIENTE_SELECCIONADO = null;
+let timeoutBusqueda = null;
+
+// ============================================================
+// BÚSQUEDA DE CLIENTES (autocompletado)
+// ============================================================
+function buscarClientes() {
+  clearTimeout(timeoutBusqueda);
+  const texto = document.getElementById('buscarCliente').value.trim();
+  const resultados = document.getElementById('resultadosBusqueda');
+
+  if (texto.length < 2) {
+    resultados.style.display = 'none';
+    return;
+  }
+
+  timeoutBusqueda = setTimeout(async () => {
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('estado', 'activo')
+      .or(`nombre.ilike.%${texto}%,apellido.ilike.%${texto}%,cedula.ilike.%${texto}%`)
+      .limit(10);
+
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+    if (!data || data.length === 0) {
+      resultados.innerHTML = '<div style="padding:12px" class="text-muted">Sin resultados</div>';
+      resultados.style.display = 'block';
+      return;
+    }
+
+    resultados.innerHTML = data.map(c => `
+      <div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color)"
+           onmouseover="this.style.background='var(--bg-hover)'"
+           onmouseout="this.style.background='transparent'"
+           onclick='seleccionarCliente(${JSON.stringify(c).replace(/'/g, "&apos;")})'>
+        <strong>${c.nombre} ${c.apellido}</strong>
+        <div class="text-muted" style="font-size:0.78rem">${c.cedula || 'Sin cédula'} · ${nombreSucursal(c.sucursal_id)}</div>
+      </div>
+    `).join('');
+    resultados.style.display = 'block';
+  }, 250);
+}
+
+// Oculta resultados al hacer click fuera
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#buscarCliente') && !e.target.closest('#resultadosBusqueda')) {
+    document.getElementById('resultadosBusqueda').style.display = 'none';
+  }
+});
+
+async function seleccionarCliente(cliente) {
+  CLIENTE_SELECCIONADO = cliente;
+  document.getElementById('buscarCliente').value = `${cliente.nombre} ${cliente.apellido}`;
+  document.getElementById('resultadosBusqueda').style.display = 'none';
+
+  document.getElementById('selNombre').textContent = `${cliente.nombre} ${cliente.apellido}`;
+  document.getElementById('selCedula').textContent = cliente.cedula ? `Cédula: ${cliente.cedula}` : 'Sin cédula registrada';
+  document.getElementById('selSucursal').value = cliente.sucursal_id;
+
+  // Verificar membresía activa
+  const { data: membresia } = await supabase
+    .from('membresias')
+    .select('*')
+    .eq('cliente_id', cliente.id)
+    .eq('estado', 'activa')
+    .order('fecha_fin', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const estadoDiv = document.getElementById('selEstadoMembresia');
+  if (!membresia) {
+    estadoDiv.innerHTML = '<span class="badge badge-muted">Sin plan activo</span>';
+  } else {
+    const estado = estadoMembresiaPorFecha(membresia.fecha_fin);
+    estadoDiv.innerHTML = `${badgeEstadoMembresia(membresia.fecha_fin)} <span class="text-secondary" style="font-size:0.8rem; margin-left:6px">${membresia.nombre_plan}</span>`;
+    if (estado === 'vencida') {
+      estadoDiv.innerHTML += ' <span class="badge badge-danger" style="margin-left:6px">⚠️ Membresía vencida</span>';
+    }
+  }
+
+  document.getElementById('clienteSeleccionadoCard').style.display = 'block';
+}
+
+async function registrarIngreso() {
+  if (!CLIENTE_SELECCIONADO) return;
+
+  const sucursal = parseInt(document.getElementById('selSucursal').value);
+  const ahora = new Date();
+  const hora = ahora.toTimeString().split(' ')[0];
+
+  const { error } = await supabase.from('asistencias').insert({
+    cliente_id: CLIENTE_SELECCIONADO.id,
+    sucursal_id: sucursal,
+    fecha: hoyISO(),
+    hora: hora
+  });
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  showToast(`Ingreso registrado: ${CLIENTE_SELECCIONADO.nombre} ${CLIENTE_SELECCIONADO.apellido}`);
+
+  // Limpiar selección
+  document.getElementById('buscarCliente').value = '';
+  document.getElementById('clienteSeleccionadoCard').style.display = 'none';
+  CLIENTE_SELECCIONADO = null;
+
+  // Refrescar historial si se está viendo el día de hoy
+  if (document.getElementById('filtroFecha').value === hoyISO()) {
+    await cargarHistorial();
+  }
+}
+
+// ============================================================
+// HISTORIAL DE ASISTENCIA
+// ============================================================
+async function cargarHistorial() {
+  const fecha = document.getElementById('filtroFecha').value;
+  const sucursalFiltro = document.getElementById('filtroSucursalHist').value;
+
+  let query = supabase
+    .from('asistencias')
+    .select('*, clientes(nombre, apellido, cedula)')
+    .eq('fecha', fecha)
+    .order('hora', { ascending: false });
+
+  if (sucursalFiltro !== 'todas') query = query.eq('sucursal_id', sucursalFiltro);
+
+  const { data, error } = await query;
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  // Estadísticas (siempre sobre todas las sucursales para esa fecha)
+  const { data: todas } = await supabase.from('asistencias').select('sucursal_id').eq('fecha', fecha);
+  document.getElementById('statTotalDia').textContent = (todas || []).length;
+  document.getElementById('statNorteDia').textContent = (todas || []).filter(a => a.sucursal_id === 1).length;
+  document.getElementById('statSurDia').textContent = (todas || []).filter(a => a.sucursal_id === 2).length;
+
+  const tbody = document.getElementById('tablaHistorial');
+  const vacio = document.getElementById('historialVacio');
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '';
+    document.querySelector('.table-wrap').style.display = 'none';
+    vacio.style.display = 'block';
+    return;
+  }
+
+  document.querySelector('.table-wrap').style.display = '';
+  vacio.style.display = 'none';
+
+  tbody.innerHTML = data.map(a => `
+    <tr>
+      <td>${a.hora ? a.hora.substring(0,5) : '-'}</td>
+      <td><strong>${a.clientes ? a.clientes.nombre + ' ' + a.clientes.apellido : 'Cliente eliminado'}</strong></td>
+      <td>${a.clientes ? (a.clientes.cedula || '-') : '-'}</td>
+      <td>${pillSucursal(a.sucursal_id)}</td>
+    </tr>
+  `).join('');
+}
+
+// Inicializar con la fecha de hoy
+document.getElementById('filtroFecha').value = hoyISO();
+cargarHistorial();
+</script>
+
+</body>
+</html>

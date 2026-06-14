@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TenshoGym - Membresías</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="page-header">
+    <div>
+      <h1>Membresías</h1>
+      <p>Control de planes, vencimientos y renovaciones</p>
+    </div>
+  </div>
+
+  <!-- Tarjetas resumen -->
+  <div class="grid grid-4 mb-2">
+    <div class="stat-card">
+      <div class="icon green">✅</div>
+      <div class="value" id="statActivas">-</div>
+      <div class="label">Membresías activas</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon gold">⏰</div>
+      <div class="value" id="statPorVencer">-</div>
+      <div class="label">Por vencer (7 días)</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon red">❌</div>
+      <div class="value" id="statVencidas">-</div>
+      <div class="label">Vencidas sin renovar</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon blue">💵</div>
+      <div class="value" id="statValorCartera">-</div>
+      <div class="label">Valor total de planes activos</div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="search-bar">
+    <input type="text" id="buscar" placeholder="Buscar por nombre del cliente..." oninput="filtrarYRenderizar()">
+    <select id="filtroSucursal" onchange="filtrarYRenderizar()">
+      <option value="todas">Todas las sucursales</option>
+      <option value="1">Sucursal Norte</option>
+      <option value="2">Sucursal Sur</option>
+    </select>
+    <select id="filtroEstado" onchange="filtrarYRenderizar()">
+      <option value="todas">Todos los estados</option>
+      <option value="activa">Activa</option>
+      <option value="por_vencer">Por vencer</option>
+      <option value="vencida">Vencida</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Sucursal</th>
+          <th>Plan</th>
+          <th>Precio</th>
+          <th>Permanencia</th>
+          <th>Inicio</th>
+          <th>Fin</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaMembresias">
+        <tr><td colspan="9"><div class="loading-spinner"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="vacio" class="empty-state" style="display:none">
+    <div class="icon">📋</div>
+    <p>No se encontraron membresías con esos filtros.</p>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     MODAL: Renovar Membresía
+     ============================================================ -->
+<div class="modal-overlay" id="modalRenovar">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Renovar membresía</h2>
+      <button class="modal-close" onclick="closeModal('modalRenovar')">✕</button>
+    </div>
+
+    <p class="mb-2 text-secondary" style="font-size:0.85rem">
+      Cliente: <strong id="renovarClienteNombre"></strong>
+    </p>
+
+    <div class="form-group">
+      <label>Plan base (referencia, opcional)</label>
+      <select id="renovarPlanBase" onchange="autocompletarPlanRenovar()">
+        <option value="">-- Personalizado --</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nombre del plan *</label>
+        <input type="text" id="renovarNombrePlan">
+      </div>
+      <div class="form-group">
+        <label>Precio (USD) *</label>
+        <input type="number" id="renovarPrecio" step="0.01" min="0">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Permanencia (días) *</label>
+        <input type="number" id="renovarDuracion" min="1" oninput="actualizarFechaFinRenovar()">
+      </div>
+      <div class="form-group">
+        <label>Fecha de inicio *</label>
+        <input type="date" id="renovarFechaInicio" onchange="actualizarFechaFinRenovar()">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Fecha de finalización (calculada)</label>
+      <input type="date" id="renovarFechaFin" readonly style="opacity:0.7">
+    </div>
+
+    <div class="form-group">
+      <label>¿Registrar pago de esta renovación?</label>
+      <select id="renovarRegistrarPago">
+        <option value="si">Sí, registrar pago completo ahora</option>
+        <option value="no">No, dejar pendiente</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalRenovar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarRenovacion()">Confirmar renovación</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: Editar Membresía actual
+     ============================================================ -->
+<div class="modal-overlay" id="modalEditar">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Editar membresía</h2>
+      <button class="modal-close" onclick="closeModal('modalEditar')">✕</button>
+    </div>
+
+    <p class="mb-2 text-secondary" style="font-size:0.85rem">
+      Cliente: <strong id="editarClienteNombre"></strong> — Ajusta el precio o la permanencia personalizada de su plan actual.
+    </p>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nombre del plan *</label>
+        <input type="text" id="editarNombrePlan">
+      </div>
+      <div class="form-group">
+        <label>Precio (USD) *</label>
+        <input type="number" id="editarPrecio" step="0.01" min="0">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Permanencia (días) *</label>
+        <input type="number" id="editarDuracion" min="1" oninput="actualizarFechaFinEditar()">
+      </div>
+      <div class="form-group">
+        <label>Fecha de inicio *</label>
+        <input type="date" id="editarFechaInicio" onchange="actualizarFechaFinEditar()">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Fecha de finalización (calculada)</label>
+      <input type="date" id="editarFechaFin" readonly style="opacity:0.7">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="cancelarMembresia()">Cancelar plan</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalEditar')">Cerrar</button>
+      <button class="btn btn-primary" onclick="guardarEdicion()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/supabase-config.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+renderNavbar('membresias');
+
+let TODAS_MEMBRESIAS = [];
+let PLANES_BASE = [];
+let MEMBRESIA_ACTUAL = null;
+
+async function init() {
+  const { data: planes } = await supabase.from('planes_base').select('*').order('duracion_dias');
+  PLANES_BASE = planes || [];
+
+  ['renovarPlanBase'].forEach(id => {
+    const sel = document.getElementById(id);
+    PLANES_BASE.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.nombre} - ${formatMoney(p.precio_sugerido)} (${p.duracion_dias} días)`;
+      sel.appendChild(opt);
+    });
+  });
+
+  await cargarMembresias();
+}
+
+async function cargarMembresias() {
+  const { data, error } = await supabase
+    .from('membresias')
+    .select('*, clientes(id, nombre, apellido, sucursal_id, estado)')
+    .eq('estado', 'activa')
+    .order('fecha_fin', { ascending: true });
+
+  if (error) {
+    showToast('Error al cargar membresías: ' + error.message, 'error');
+    return;
+  }
+
+  TODAS_MEMBRESIAS = (data || []).filter(m => m.clientes && m.clientes.estado === 'activo');
+  renderStats();
+  filtrarYRenderizar();
+}
+
+function renderStats() {
+  const hoy = hoyISO();
+  const limite = new Date(hoy + 'T00:00:00');
+  limite.setDate(limite.getDate() + DIAS_ALERTA_VENCIMIENTO);
+  const limiteISO = limite.toISOString().split('T')[0];
+
+  let activas = 0, porVencer = 0, vencidas = 0, valorCartera = 0;
+
+  TODAS_MEMBRESIAS.forEach(m => {
+    const dias = diasRestantes(m.fecha_fin);
+    if (dias < 0) vencidas++;
+    else if (dias <= DIAS_ALERTA_VENCIMIENTO) { porVencer++; activas++; valorCartera += Number(m.precio); }
+    else { activas++; valorCartera += Number(m.precio); }
+  });
+
+  document.getElementById('statActivas').textContent = activas;
+  document.getElementById('statPorVencer').textContent = porVencer;
+  document.getElementById('statVencidas').textContent = vencidas;
+  document.getElementById('statValorCartera').textContent = formatMoney(valorCartera);
+}
+
+function filtrarYRenderizar() {
+  const texto = document.getElementById('buscar').value.trim().toLowerCase();
+  const sucursal = document.getElementById('filtroSucursal').value;
+  const estado = document.getElementById('filtroEstado').value;
+
+  let filtradas = [...TODAS_MEMBRESIAS];
+
+  if (texto) {
+    filtradas = filtradas.filter(m => `${m.clientes.nombre} ${m.clientes.apellido}`.toLowerCase().includes(texto));
+  }
+
+  if (sucursal !== 'todas') {
+    filtradas = filtradas.filter(m => m.clientes.sucursal_id === parseInt(sucursal));
+  }
+
+  if (estado !== 'todas') {
+    filtradas = filtradas.filter(m => estadoMembresiaPorFecha(m.fecha_fin) === estado);
+  }
+
+  renderTabla(filtradas);
+}
+
+function renderTabla(lista) {
+  const tbody = document.getElementById('tablaMembresias');
+  const vacio = document.getElementById('vacio');
+
+  if (lista.length === 0) {
+    tbody.innerHTML = '';
+    document.querySelector('.table-wrap').style.display = 'none';
+    vacio.style.display = 'block';
+    return;
+  }
+
+  document.querySelector('.table-wrap').style.display = '';
+  vacio.style.display = 'none';
+
+  tbody.innerHTML = lista.map(m => `
+    <tr>
+      <td><strong>${m.clientes.nombre} ${m.clientes.apellido}</strong></td>
+      <td>${pillSucursal(m.clientes.sucursal_id)}</td>
+      <td>${m.nombre_plan}</td>
+      <td>${formatMoney(m.precio)}</td>
+      <td>${m.duracion_dias} días</td>
+      <td>${formatDate(m.fecha_inicio)}</td>
+      <td>${formatDate(m.fecha_fin)}</td>
+      <td>${badgeEstadoMembresia(m.fecha_fin)}</td>
+      <td>
+        <div class="flex-gap">
+          <button class="btn btn-primary btn-sm" onclick="abrirRenovar('${m.id}')">Renovar</button>
+          <button class="btn btn-secondary btn-sm" onclick="abrirEditar('${m.id}')">Editar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================
+// RENOVAR
+// ============================================================
+function abrirRenovar(membresiaId) {
+  const m = TODAS_MEMBRESIAS.find(x => x.id === membresiaId);
+  if (!m) return;
+  MEMBRESIA_ACTUAL = m;
+
+  document.getElementById('renovarClienteNombre').textContent = `${m.clientes.nombre} ${m.clientes.apellido}`;
+  document.getElementById('renovarPlanBase').value = m.plan_base_id || '';
+  document.getElementById('renovarNombrePlan').value = m.nombre_plan;
+  document.getElementById('renovarPrecio').value = m.precio;
+  document.getElementById('renovarDuracion').value = m.duracion_dias;
+
+  // Fecha de inicio sugerida: si la membresía actual aún no vence, continuar desde el día siguiente a su fin;
+  // si ya venció, iniciar hoy.
+  const hoy = hoyISO();
+  let fechaInicioSugerida = hoy;
+  if (diasRestantes(m.fecha_fin) >= 0) {
+    const siguiente = new Date(m.fecha_fin + 'T00:00:00');
+    siguiente.setDate(siguiente.getDate() + 1);
+    fechaInicioSugerida = siguiente.toISOString().split('T')[0];
+  }
+  document.getElementById('renovarFechaInicio').value = fechaInicioSugerida;
+  actualizarFechaFinRenovar();
+  document.getElementById('renovarRegistrarPago').value = 'si';
+
+  openModal('modalRenovar');
+}
+
+function autocompletarPlanRenovar() {
+  const planId = document.getElementById('renovarPlanBase').value;
+  if (!planId) return;
+  const plan = PLANES_BASE.find(p => String(p.id) === planId);
+  if (plan) {
+    document.getElementById('renovarNombrePlan').value = plan.nombre;
+    document.getElementById('renovarPrecio').value = plan.precio_sugerido;
+    document.getElementById('renovarDuracion').value = plan.duracion_dias;
+    actualizarFechaFinRenovar();
+  }
+}
+
+function actualizarFechaFinRenovar() {
+  const inicio = document.getElementById('renovarFechaInicio').value;
+  const dias = document.getElementById('renovarDuracion').value;
+  if (inicio && dias) {
+    document.getElementById('renovarFechaFin').value = calcularFechaFin(inicio, dias);
+  }
+}
+
+async function confirmarRenovacion() {
+  const nombrePlan = document.getElementById('renovarNombrePlan').value.trim();
+  const precio = document.getElementById('renovarPrecio').value;
+  const duracion = document.getElementById('renovarDuracion').value;
+  const fechaInicio = document.getElementById('renovarFechaInicio').value;
+
+  if (!nombrePlan || !precio || !duracion || !fechaInicio) {
+    showToast('Completa todos los campos obligatorios', 'error');
+    return;
+  }
+
+  // Marcar la membresía actual como reemplazada
+  await supabase.from('membresias').update({ estado: 'cancelada' }).eq('id', MEMBRESIA_ACTUAL.id);
+
+  const fechaFin = calcularFechaFin(fechaInicio, duracion);
+  const { data: nueva, error } = await supabase.from('membresias').insert({
+    cliente_id: MEMBRESIA_ACTUAL.cliente_id,
+    plan_base_id: document.getElementById('renovarPlanBase').value || null,
+    nombre_plan: nombrePlan,
+    precio: parseFloat(precio),
+    duracion_dias: parseInt(duracion),
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin,
+    estado: 'activa'
+  }).select().single();
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  if (document.getElementById('renovarRegistrarPago').value === 'si') {
+    await supabase.from('pagos').insert({
+      cliente_id: MEMBRESIA_ACTUAL.cliente_id,
+      membresia_id: nueva.id,
+      sucursal_id: MEMBRESIA_ACTUAL.clientes.sucursal_id,
+      monto: parseFloat(precio),
+      metodo_pago: 'efectivo',
+      fecha_pago: hoyISO(),
+      observaciones: `Renovación - ${nombrePlan}`
+    });
+  }
+
+  showToast('Membresía renovada correctamente');
+  closeModal('modalRenovar');
+  await cargarMembresias();
+}
+
+// ============================================================
+// EDITAR MEMBRESÍA ACTUAL (personalización de precio/permanencia)
+// ============================================================
+function abrirEditar(membresiaId) {
+  const m = TODAS_MEMBRESIAS.find(x => x.id === membresiaId);
+  if (!m) return;
+  MEMBRESIA_ACTUAL = m;
+
+  document.getElementById('editarClienteNombre').textContent = `${m.clientes.nombre} ${m.clientes.apellido}`;
+  document.getElementById('editarNombrePlan').value = m.nombre_plan;
+  document.getElementById('editarPrecio').value = m.precio;
+  document.getElementById('editarDuracion').value = m.duracion_dias;
+  document.getElementById('editarFechaInicio').value = m.fecha_inicio;
+  document.getElementById('editarFechaFin').value = m.fecha_fin;
+
+  openModal('modalEditar');
+}
+
+function actualizarFechaFinEditar() {
+  const inicio = document.getElementById('editarFechaInicio').value;
+  const dias = document.getElementById('editarDuracion').value;
+  if (inicio && dias) {
+    document.getElementById('editarFechaFin').value = calcularFechaFin(inicio, dias);
+  }
+}
+
+async function guardarEdicion() {
+  const nombrePlan = document.getElementById('editarNombrePlan').value.trim();
+  const precio = document.getElementById('editarPrecio').value;
+  const duracion = document.getElementById('editarDuracion').value;
+  const fechaInicio = document.getElementById('editarFechaInicio').value;
+
+  if (!nombrePlan || !precio || !duracion || !fechaInicio) {
+    showToast('Completa todos los campos obligatorios', 'error');
+    return;
+  }
+
+  const fechaFin = calcularFechaFin(fechaInicio, duracion);
+
+  const { error } = await supabase.from('membresias').update({
+    nombre_plan: nombrePlan,
+    precio: parseFloat(precio),
+    duracion_dias: parseInt(duracion),
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin
+  }).eq('id', MEMBRESIA_ACTUAL.id);
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  showToast('Membresía actualizada correctamente');
+  closeModal('modalEditar');
+  await cargarMembresias();
+}
+
+async function cancelarMembresia() {
+  if (!confirm(`¿Cancelar el plan "${MEMBRESIA_ACTUAL.nombre_plan}" de ${MEMBRESIA_ACTUAL.clientes.nombre}? El cliente quedará sin un plan activo.`)) return;
+
+  const { error } = await supabase.from('membresias').update({ estado: 'cancelada' }).eq('id', MEMBRESIA_ACTUAL.id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  showToast('Plan cancelado');
+  closeModal('modalEditar');
+  await cargarMembresias();
+}
+
+init();
+</script>
+
+</body>
+</html>

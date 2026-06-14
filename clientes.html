@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TenshoGym - Clientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="page-header">
+    <div>
+      <h1>Clientes</h1>
+      <p>Gestión de clientes y membresías por sucursal</p>
+    </div>
+    <button class="btn btn-primary" onclick="abrirNuevoCliente()">+ Nuevo cliente</button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="search-bar">
+    <input type="text" id="buscar" placeholder="Buscar por nombre, apellido o cédula..." oninput="filtrarYRenderizar()">
+    <select id="filtroSucursal" onchange="filtrarYRenderizar()">
+      <option value="todas">Todas las sucursales</option>
+      <option value="1">Sucursal Norte</option>
+      <option value="2">Sucursal Sur</option>
+    </select>
+    <select id="filtroEstadoMembresia" onchange="filtrarYRenderizar()">
+      <option value="todos">Todos los estados</option>
+      <option value="activa">Membresía activa</option>
+      <option value="por_vencer">Por vencer</option>
+      <option value="vencida">Vencida</option>
+      <option value="sin_plan">Sin plan asignado</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Cédula</th>
+          <th>Teléfono</th>
+          <th>Sucursal</th>
+          <th>Plan actual</th>
+          <th>Precio</th>
+          <th>Vence</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaClientes">
+        <tr><td colspan="9"><div class="loading-spinner"></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="clientesVacio" class="empty-state" style="display:none">
+    <div class="icon">🔍</div>
+    <p>No se encontraron clientes con esos filtros.</p>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     MODAL: Nuevo / Editar Cliente
+     ============================================================ -->
+<div class="modal-overlay" id="modalCliente">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="tituloModalCliente">Nuevo cliente</h2>
+      <button class="modal-close" onclick="closeModal('modalCliente')">✕</button>
+    </div>
+
+    <input type="hidden" id="clienteId">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nombre *</label>
+        <input type="text" id="clienteNombre" placeholder="Ej. Juan">
+      </div>
+      <div class="form-group">
+        <label>Apellido *</label>
+        <input type="text" id="clienteApellido" placeholder="Ej. Pérez">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Cédula</label>
+        <input type="text" id="clienteCedula" placeholder="1712345678">
+      </div>
+      <div class="form-group">
+        <label>Teléfono</label>
+        <input type="text" id="clienteTelefono" placeholder="0991234567">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="clienteEmail" placeholder="correo@ejemplo.com">
+      </div>
+      <div class="form-group">
+        <label>Fecha de nacimiento</label>
+        <input type="date" id="clienteFechaNacimiento">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Sucursal *</label>
+        <select id="clienteSucursal">
+          <option value="1">Sucursal Norte</option>
+          <option value="2">Sucursal Sur</option>
+        </select>
+      </div>
+      <div class="form-group" id="grupoEstadoCliente" style="display:none">
+        <label>Estado del cliente</label>
+        <select id="clienteEstado">
+          <option value="activo">Activo</option>
+          <option value="inactivo">Inactivo</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Notas</label>
+      <textarea id="clienteNotas" placeholder="Observaciones, lesiones, objetivos, etc."></textarea>
+    </div>
+
+    <!-- Plan inicial (solo al crear) -->
+    <div id="bloquePlanInicial">
+      <hr style="border-color:var(--border-color); margin: 18px 0;">
+      <h3 style="font-size:0.95rem; margin-bottom:10px">📋 Plan / Membresía inicial (opcional)</h3>
+      <div class="form-group">
+        <label>Plan base (referencia)</label>
+        <select id="clientePlanBase" onchange="autocompletarPlan()">
+          <option value="">-- Sin plan / personalizado --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nombre del plan</label>
+          <input type="text" id="clienteNombrePlan" placeholder="Ej. Mensual">
+        </div>
+        <div class="form-group">
+          <label>Precio (USD) *</label>
+          <input type="number" id="clientePrecioPlan" step="0.01" min="0" placeholder="30.00">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Permanencia (días) *</label>
+          <input type="number" id="clienteDuracionPlan" min="1" placeholder="30">
+        </div>
+        <div class="form-group">
+          <label>Fecha de inicio</label>
+          <input type="date" id="clienteFechaInicioPlan">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Registrar pago de este plan</label>
+        <select id="clientePagoInicial">
+          <option value="si">Sí, registrar pago completo</option>
+          <option value="no">No, dejar como pendiente</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalCliente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarCliente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: Detalle de Cliente
+     ============================================================ -->
+<div class="modal-overlay" id="modalDetalle">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <h2 id="detalleNombreCliente">Cliente</h2>
+      <button class="modal-close" onclick="closeModal('modalDetalle')">✕</button>
+    </div>
+
+    <div id="detalleInfoBasica" class="mb-2"></div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="cambiarTab('membresias')" id="tabMembresias">Membresías</div>
+      <div class="tab" onclick="cambiarTab('pagos')" id="tabPagos">Pagos</div>
+      <div class="tab" onclick="cambiarTab('asistencia')" id="tabAsistencia">Asistencia</div>
+    </div>
+
+    <!-- Tab Membresías -->
+    <div id="panelMembresias">
+      <div class="flex-between mb-1">
+        <span class="text-secondary" style="font-size:0.85rem">Historial de planes de este cliente</span>
+        <button class="btn btn-primary btn-sm" onclick="abrirNuevaMembresia()">+ Nueva membresía</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Plan</th>
+              <th>Precio</th>
+              <th>Duración</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tablaMembresiasCliente"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab Pagos -->
+    <div id="panelPagos" style="display:none">
+      <div class="flex-between mb-1">
+        <span class="text-secondary" style="font-size:0.85rem">Historial de pagos</span>
+        <button class="btn btn-primary btn-sm" onclick="abrirNuevoPago()">+ Registrar pago</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Monto</th>
+              <th>Método</th>
+              <th>Plan asociado</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaPagosCliente"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab Asistencia -->
+    <div id="panelAsistencia" style="display:none">
+      <span class="text-secondary" style="font-size:0.85rem">Últimas asistencias registradas</span>
+      <div class="table-wrap mt-1">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Sucursal</th>
+            </tr>
+          </thead>
+          <tbody id="tablaAsistenciaCliente"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="eliminarClienteDesdeDetalle()">🗑️ Eliminar cliente</button>
+      <button class="btn btn-secondary" onclick="editarDesdeDetalle()">✏️ Editar datos</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalDetalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: Nueva Membresía (personalizable)
+     ============================================================ -->
+<div class="modal-overlay" id="modalMembresia">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Nueva membresía</h2>
+      <button class="modal-close" onclick="closeModal('modalMembresia')">✕</button>
+    </div>
+
+    <p class="text-secondary mb-2" style="font-size:0.85rem">
+      Precio y permanencia son completamente personalizables para este cliente.
+    </p>
+
+    <div class="form-group">
+      <label>Plan base (referencia, opcional)</label>
+      <select id="membPlanBase" onchange="autocompletarPlanMembresia()">
+        <option value="">-- Personalizado --</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nombre del plan *</label>
+        <input type="text" id="membNombrePlan" placeholder="Ej. Mensual VIP">
+      </div>
+      <div class="form-group">
+        <label>Precio (USD) *</label>
+        <input type="number" id="membPrecio" step="0.01" min="0" placeholder="30.00">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Permanencia (días) *</label>
+        <input type="number" id="membDuracion" min="1" placeholder="30" oninput="actualizarFechaFinMembresia()">
+      </div>
+      <div class="form-group">
+        <label>Fecha de inicio *</label>
+        <input type="date" id="membFechaInicio" onchange="actualizarFechaFinMembresia()">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Fecha de finalización (calculada)</label>
+      <input type="date" id="membFechaFin" readonly style="opacity:0.7">
+    </div>
+
+    <div class="form-group">
+      <label>¿Registrar pago de esta membresía?</label>
+      <select id="membRegistrarPago">
+        <option value="si">Sí, registrar pago completo ahora</option>
+        <option value="no">No, dejar pendiente</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Notas</label>
+      <textarea id="membNotas" placeholder="Detalles del plan, descuentos, etc."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalMembresia')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarMembresia()">Guardar membresía</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: Registrar Pago
+     ============================================================ -->
+<div class="modal-overlay" id="modalPago">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Registrar pago</h2>
+      <button class="modal-close" onclick="closeModal('modalPago')">✕</button>
+    </div>
+
+    <div class="form-group">
+      <label>Membresía asociada</label>
+      <select id="pagoMembresia">
+        <option value="">-- Sin asociar a un plan --</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Monto (USD) *</label>
+        <input type="number" id="pagoMonto" step="0.01" min="0" placeholder="30.00">
+      </div>
+      <div class="form-group">
+        <label>Fecha de pago *</label>
+        <input type="date" id="pagoFecha">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Método de pago</label>
+        <select id="pagoMetodo">
+          <option value="efectivo">Efectivo</option>
+          <option value="tarjeta">Tarjeta</option>
+          <option value="transferencia">Transferencia</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Sucursal</label>
+        <select id="pagoSucursal">
+          <option value="1">Sucursal Norte</option>
+          <option value="2">Sucursal Sur</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Observaciones</label>
+      <textarea id="pagoObservaciones"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalPago')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPago()">Guardar pago</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/supabase-config.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+renderNavbar('clientes');
+
+let TODOS_CLIENTES = [];
+let PLANES_BASE = [];
+let CLIENTE_ACTUAL = null; // para el modal de detalle
+
+// ============================================================
+// CARGA INICIAL
+// ============================================================
+async function init() {
+  const { data: planes } = await supabase.from('planes_base').select('*').order('duracion_dias');
+  PLANES_BASE = planes || [];
+
+  const selects = ['clientePlanBase', 'membPlanBase'];
+  selects.forEach(id => {
+    const sel = document.getElementById(id);
+    PLANES_BASE.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.nombre} - ${formatMoney(p.precio_sugerido)} (${p.duracion_dias} días)`;
+      sel.appendChild(opt);
+    });
+  });
+
+  await cargarClientes();
+}
+
+async function cargarClientes() {
+  const { data, error } = await supabase
+    .from('vista_clientes_membresia')
+    .select('*')
+    .order('nombre');
+
+  if (error) {
+    showToast('Error al cargar clientes: ' + error.message, 'error');
+    return;
+  }
+
+  TODOS_CLIENTES = data || [];
+  filtrarYRenderizar();
+}
+
+// ============================================================
+// FILTROS Y RENDER DE TABLA
+// ============================================================
+function filtrarYRenderizar() {
+  const texto = document.getElementById('buscar').value.trim().toLowerCase();
+  const sucursal = document.getElementById('filtroSucursal').value;
+  const estadoFiltro = document.getElementById('filtroEstadoMembresia').value;
+
+  let filtrados = TODOS_CLIENTES.filter(c => c.estado_cliente !== 'inactivo' || estadoFiltro === 'todos');
+
+  if (texto) {
+    filtrados = filtrados.filter(c =>
+      `${c.nombre} ${c.apellido}`.toLowerCase().includes(texto) ||
+      (c.cedula || '').toLowerCase().includes(texto)
+    );
+  }
+
+  if (sucursal !== 'todas') {
+    filtrados = filtrados.filter(c => String(c.sucursal_id) === sucursal);
+  }
+
+  if (estadoFiltro !== 'todos') {
+    filtrados = filtrados.filter(c => {
+      if (estadoFiltro === 'sin_plan') return !c.membresia_id;
+      if (!c.membresia_id) return false;
+      return estadoMembresiaPorFecha(c.fecha_fin) === estadoFiltro;
+    });
+  }
+
+  renderTabla(filtrados);
+}
+
+function renderTabla(lista) {
+  const tbody = document.getElementById('tablaClientes');
+  const vacio = document.getElementById('clientesVacio');
+
+  if (lista.length === 0) {
+    tbody.innerHTML = '';
+    document.querySelector('.table-wrap').style.display = 'none';
+    vacio.style.display = 'block';
+    return;
+  }
+
+  document.querySelector('.table-wrap').style.display = '';
+  vacio.style.display = 'none';
+
+  tbody.innerHTML = lista.map(c => {
+    const estadoCell = c.membresia_id
+      ? badgeEstadoMembresia(c.fecha_fin)
+      : '<span class="badge badge-muted">Sin plan</span>';
+
+    const inactivoBadge = c.estado_cliente === 'inactivo'
+      ? ' <span class="badge badge-muted">Inactivo</span>' : '';
+
+    return `
+      <tr>
+        <td><strong>${c.nombre} ${c.apellido}</strong>${inactivoBadge}</td>
+        <td>${c.cedula || '-'}</td>
+        <td>${c.telefono || '-'}</td>
+        <td>${pillSucursal(c.sucursal_id)}</td>
+        <td>${c.nombre_plan || '-'}</td>
+        <td>${c.membresia_id ? formatMoney(c.precio) : '-'}</td>
+        <td>${c.membresia_id ? formatDate(c.fecha_fin) : '-'}</td>
+        <td>${estadoCell}</td>
+        <td>
+          <div class="flex-gap">
+            <button class="btn btn-secondary btn-sm" onclick="verDetalle('${c.cliente_id}')">Ver</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// MODAL: NUEVO / EDITAR CLIENTE
+// ============================================================
+function abrirNuevoCliente() {
+  document.getElementById('tituloModalCliente').textContent = 'Nuevo cliente';
+  document.getElementById('clienteId').value = '';
+  document.getElementById('clienteNombre').value = '';
+  document.getElementById('clienteApellido').value = '';
+  document.getElementById('clienteCedula').value = '';
+  document.getElementById('clienteTelefono').value = '';
+  document.getElementById('clienteEmail').value = '';
+  document.getElementById('clienteFechaNacimiento').value = '';
+  document.getElementById('clienteSucursal').value = '1';
+  document.getElementById('clienteEstado').value = 'activo';
+  document.getElementById('clienteNotas').value = '';
+  document.getElementById('grupoEstadoCliente').style.display = 'none';
+  document.getElementById('bloquePlanInicial').style.display = 'block';
+
+  document.getElementById('clientePlanBase').value = '';
+  document.getElementById('clienteNombrePlan').value = '';
+  document.getElementById('clientePrecioPlan').value = '';
+  document.getElementById('clienteDuracionPlan').value = '';
+  document.getElementById('clienteFechaInicioPlan').value = hoyISO();
+  document.getElementById('clientePagoInicial').value = 'si';
+
+  openModal('modalCliente');
+}
+
+function abrirEditarCliente(cliente) {
+  document.getElementById('tituloModalCliente').textContent = 'Editar cliente';
+  document.getElementById('clienteId').value = cliente.cliente_id || cliente.id;
+  document.getElementById('clienteNombre').value = cliente.nombre;
+  document.getElementById('clienteApellido').value = cliente.apellido;
+  document.getElementById('clienteCedula').value = cliente.cedula || '';
+  document.getElementById('clienteTelefono').value = cliente.telefono || '';
+  document.getElementById('clienteEmail').value = cliente.email || '';
+  document.getElementById('clienteFechaNacimiento').value = cliente.fecha_nacimiento || '';
+  document.getElementById('clienteSucursal').value = cliente.sucursal_id;
+  document.getElementById('clienteEstado').value = cliente.estado_cliente || cliente.estado || 'activo';
+  document.getElementById('clienteNotas').value = cliente.notas || '';
+  document.getElementById('grupoEstadoCliente').style.display = 'block';
+  document.getElementById('bloquePlanInicial').style.display = 'none';
+
+  openModal('modalCliente');
+}
+
+function autocompletarPlan() {
+  const planId = document.getElementById('clientePlanBase').value;
+  if (!planId) return;
+  const plan = PLANES_BASE.find(p => String(p.id) === planId);
+  if (plan) {
+    document.getElementById('clienteNombrePlan').value = plan.nombre;
+    document.getElementById('clientePrecioPlan').value = plan.precio_sugerido;
+    document.getElementById('clienteDuracionPlan').value = plan.duracion_dias;
+  }
+}
+
+async function guardarCliente() {
+  const id = document.getElementById('clienteId').value;
+  const nombre = document.getElementById('clienteNombre').value.trim();
+  const apellido = document.getElementById('clienteApellido').value.trim();
+
+  if (!nombre || !apellido) {
+    showToast('Nombre y apellido son obligatorios', 'error');
+    return;
+  }
+
+  const payload = {
+    nombre,
+    apellido,
+    cedula: document.getElementById('clienteCedula').value.trim() || null,
+    telefono: document.getElementById('clienteTelefono').value.trim() || null,
+    email: document.getElementById('clienteEmail').value.trim() || null,
+    fecha_nacimiento: document.getElementById('clienteFechaNacimiento').value || null,
+    sucursal_id: parseInt(document.getElementById('clienteSucursal').value),
+    notas: document.getElementById('clienteNotas').value.trim() || null
+  };
+
+  if (id) {
+    payload.estado = document.getElementById('clienteEstado').value;
+    const { error } = await supabase.from('clientes').update(payload).eq('id', id);
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    showToast('Cliente actualizado correctamente');
+  } else {
+    const { data, error } = await supabase.from('clientes').insert(payload).select().single();
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    showToast('Cliente creado correctamente');
+
+    // Plan inicial opcional
+    const precioPlan = document.getElementById('clientePrecioPlan').value;
+    const duracionPlan = document.getElementById('clienteDuracionPlan').value;
+    if (precioPlan && duracionPlan) {
+      await crearMembresiaParaCliente(data.id, {
+        plan_base_id: document.getElementById('clientePlanBase').value || null,
+        nombre_plan: document.getElementById('clienteNombrePlan').value.trim() || 'Plan personalizado',
+        precio: parseFloat(precioPlan),
+        duracion_dias: parseInt(duracionPlan),
+        fecha_inicio: document.getElementById('clienteFechaInicioPlan').value || hoyISO(),
+        registrarPago: document.getElementById('clientePagoInicial').value === 'si',
+        sucursal_id: payload.sucursal_id
+      });
+    }
+  }
+
+  closeModal('modalCliente');
+  await cargarClientes();
+}
+
+async function crearMembresiaParaCliente(clienteId, info) {
+  const fechaFin = calcularFechaFin(info.fecha_inicio, info.duracion_dias);
+
+  const { data: membresia, error } = await supabase.from('membresias').insert({
+    cliente_id: clienteId,
+    plan_base_id: info.plan_base_id || null,
+    nombre_plan: info.nombre_plan,
+    precio: info.precio,
+    duracion_dias: info.duracion_dias,
+    fecha_inicio: info.fecha_inicio,
+    fecha_fin: fechaFin,
+    estado: 'activa',
+    notas: info.notas || null
+  }).select().single();
+
+  if (error) {
+    showToast('Error al crear membresía: ' + error.message, 'error');
+    return null;
+  }
+
+  if (info.registrarPago) {
+    await supabase.from('pagos').insert({
+      cliente_id: clienteId,
+      membresia_id: membresia.id,
+      sucursal_id: info.sucursal_id,
+      monto: info.precio,
+      metodo_pago: 'efectivo',
+      fecha_pago: hoyISO(),
+      observaciones: `Pago inicial - ${info.nombre_plan}`
+    });
+  }
+
+  return membresia;
+}
+
+// ============================================================
+// MODAL: DETALLE DE CLIENTE
+// ============================================================
+async function verDetalle(clienteId) {
+  const { data: cliente, error } = await supabase.from('clientes').select('*').eq('id', clienteId).single();
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  CLIENTE_ACTUAL = cliente;
+
+  document.getElementById('detalleNombreCliente').textContent = `${cliente.nombre} ${cliente.apellido}`;
+
+  const inactivoTxt = cliente.estado === 'inactivo' ? '<span class="badge badge-muted">Inactivo</span>' : '<span class="badge badge-success">Activo</span>';
+
+  document.getElementById('detalleInfoBasica').innerHTML = `
+    <div class="grid grid-3">
+      <div><span class="text-muted" style="font-size:0.75rem">CÉDULA</span><br><strong>${cliente.cedula || '-'}</strong></div>
+      <div><span class="text-muted" style="font-size:0.75rem">TELÉFONO</span><br><strong>${cliente.telefono || '-'}</strong></div>
+      <div><span class="text-muted" style="font-size:0.75rem">EMAIL</span><br><strong>${cliente.email || '-'}</strong></div>
+      <div><span class="text-muted" style="font-size:0.75rem">SUCURSAL</span><br>${pillSucursal(cliente.sucursal_id)}</div>
+      <div><span class="text-muted" style="font-size:0.75rem">REGISTRO</span><br><strong>${formatDate(cliente.fecha_registro)}</strong></div>
+      <div><span class="text-muted" style="font-size:0.75rem">ESTADO</span><br>${inactivoTxt}</div>
+    </div>
+    ${cliente.notas ? `<div class="mt-1"><span class="text-muted" style="font-size:0.75rem">NOTAS</span><br>${cliente.notas}</div>` : ''}
+  `;
+
+  await cargarMembresiasCliente(clienteId);
+  await cargarPagosCliente(clienteId);
+  await cargarAsistenciaCliente(clienteId);
+
+  cambiarTab('membresias');
+  openModal('modalDetalle');
+}
+
+function cambiarTab(tab) {
+  ['membresias', 'pagos', 'asistencia'].forEach(t => {
+    document.getElementById('tab' + capitalize(t)).classList.toggle('active', t === tab);
+    document.getElementById('panel' + capitalize(t)).style.display = t === tab ? 'block' : 'none';
+  });
+}
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+async function cargarMembresiasCliente(clienteId) {
+  const { data } = await supabase.from('membresias').select('*').eq('cliente_id', clienteId).order('fecha_inicio', { ascending: false });
+  const tbody = document.getElementById('tablaMembresiasCliente');
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-muted">Sin membresías registradas</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(m => {
+    let estadoCell;
+    if (m.estado === 'cancelada') {
+      estadoCell = '<span class="badge badge-muted">Reemplazada</span>';
+    } else {
+      estadoCell = badgeEstadoMembresia(m.fecha_fin);
+    }
+    return `
+      <tr>
+        <td><strong>${m.nombre_plan}</strong></td>
+        <td>${formatMoney(m.precio)}</td>
+        <td>${m.duracion_dias} días</td>
+        <td>${formatDate(m.fecha_inicio)}</td>
+        <td>${formatDate(m.fecha_fin)}</td>
+        <td>${estadoCell}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function cargarPagosCliente(clienteId) {
+  const { data } = await supabase.from('pagos').select('*, membresias(nombre_plan)').eq('cliente_id', clienteId).order('fecha_pago', { ascending: false });
+  const tbody = document.getElementById('tablaPagosCliente');
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Sin pagos registrados</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(p => `
+    <tr>
+      <td>${formatDate(p.fecha_pago)}</td>
+      <td>${formatMoney(p.monto)}</td>
+      <td>${capitalize(p.metodo_pago)}</td>
+      <td>${p.membresias ? p.membresias.nombre_plan : '-'}</td>
+      <td class="text-secondary">${p.observaciones || '-'}</td>
+    </tr>
+  `).join('');
+}
+
+async function cargarAsistenciaCliente(clienteId) {
+  const { data } = await supabase.from('asistencias').select('*').eq('cliente_id', clienteId).order('fecha', { ascending: false }).order('hora', { ascending: false }).limit(20);
+  const tbody = document.getElementById('tablaAsistenciaCliente');
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sin asistencias registradas</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(a => `
+    <tr>
+      <td>${formatDate(a.fecha)}</td>
+      <td>${a.hora}</td>
+      <td>${pillSucursal(a.sucursal_id)}</td>
+    </tr>
+  `).join('');
+}
+
+function editarDesdeDetalle() {
+  closeModal('modalDetalle');
+  abrirEditarCliente({ cliente_id: CLIENTE_ACTUAL.id, ...CLIENTE_ACTUAL, estado_cliente: CLIENTE_ACTUAL.estado });
+}
+
+async function eliminarClienteDesdeDetalle() {
+  if (!confirm(`¿Eliminar a ${CLIENTE_ACTUAL.nombre} ${CLIENTE_ACTUAL.apellido}? Esto eliminará también su historial de membresías, pagos y asistencias. Esta acción no se puede deshacer.`)) return;
+
+  const { error } = await supabase.from('clientes').delete().eq('id', CLIENTE_ACTUAL.id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  showToast('Cliente eliminado');
+  closeModal('modalDetalle');
+  await cargarClientes();
+}
+
+// ============================================================
+// MODAL: NUEVA MEMBRESÍA (desde el detalle de cliente)
+// ============================================================
+function abrirNuevaMembresia() {
+  document.getElementById('membPlanBase').value = '';
+  document.getElementById('membNombrePlan').value = '';
+  document.getElementById('membPrecio').value = '';
+  document.getElementById('membDuracion').value = '';
+  document.getElementById('membFechaInicio').value = hoyISO();
+  document.getElementById('membFechaFin').value = '';
+  document.getElementById('membRegistrarPago').value = 'si';
+  document.getElementById('membNotas').value = '';
+  openModal('modalMembresia');
+}
+
+function autocompletarPlanMembresia() {
+  const planId = document.getElementById('membPlanBase').value;
+  if (!planId) return;
+  const plan = PLANES_BASE.find(p => String(p.id) === planId);
+  if (plan) {
+    document.getElementById('membNombrePlan').value = plan.nombre;
+    document.getElementById('membPrecio').value = plan.precio_sugerido;
+    document.getElementById('membDuracion').value = plan.duracion_dias;
+    actualizarFechaFinMembresia();
+  }
+}
+
+function actualizarFechaFinMembresia() {
+  const inicio = document.getElementById('membFechaInicio').value;
+  const dias = document.getElementById('membDuracion').value;
+  if (inicio && dias) {
+    document.getElementById('membFechaFin').value = calcularFechaFin(inicio, dias);
+  }
+}
+
+async function guardarMembresia() {
+  const nombrePlan = document.getElementById('membNombrePlan').value.trim();
+  const precio = document.getElementById('membPrecio').value;
+  const duracion = document.getElementById('membDuracion').value;
+  const fechaInicio = document.getElementById('membFechaInicio').value;
+
+  if (!nombrePlan || !precio || !duracion || !fechaInicio) {
+    showToast('Completa nombre del plan, precio, permanencia y fecha de inicio', 'error');
+    return;
+  }
+
+  // Marcar membresías activas anteriores como "cancelada" (reemplazada)
+  await supabase.from('membresias')
+    .update({ estado: 'cancelada' })
+    .eq('cliente_id', CLIENTE_ACTUAL.id)
+    .eq('estado', 'activa');
+
+  const membresia = await crearMembresiaParaCliente(CLIENTE_ACTUAL.id, {
+    plan_base_id: document.getElementById('membPlanBase').value || null,
+    nombre_plan: nombrePlan,
+    precio: parseFloat(precio),
+    duracion_dias: parseInt(duracion),
+    fecha_inicio: fechaInicio,
+    registrarPago: document.getElementById('membRegistrarPago').value === 'si',
+    sucursal_id: CLIENTE_ACTUAL.sucursal_id,
+    notas: document.getElementById('membNotas').value.trim() || null
+  });
+
+  if (!membresia) return;
+
+  showToast('Membresía registrada correctamente');
+  closeModal('modalMembresia');
+
+  // Refrescar vistas
+  await cargarMembresiasCliente(CLIENTE_ACTUAL.id);
+  await cargarPagosCliente(CLIENTE_ACTUAL.id);
+  await cargarClientes();
+}
+
+// ============================================================
+// MODAL: REGISTRAR PAGO (desde el detalle de cliente)
+// ============================================================
+async function abrirNuevoPago() {
+  const { data: membresias } = await supabase.from('membresias').select('id, nombre_plan, precio, estado').eq('cliente_id', CLIENTE_ACTUAL.id).order('fecha_inicio', { ascending: false });
+
+  const sel = document.getElementById('pagoMembresia');
+  sel.innerHTML = '<option value="">-- Sin asociar a un plan --</option>';
+  (membresias || []).forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = `${m.nombre_plan} (${formatMoney(m.precio)})${m.estado === 'activa' ? ' - Activa' : ''}`;
+    if (m.estado === 'activa') {
+      opt.selected = true;
+      document.getElementById('pagoMonto').value = m.precio;
+    }
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('pagoFecha').value = hoyISO();
+  document.getElementById('pagoMetodo').value = 'efectivo';
+  document.getElementById('pagoSucursal').value = CLIENTE_ACTUAL.sucursal_id;
+  document.getElementById('pagoObservaciones').value = '';
+
+  openModal('modalPago');
+}
+
+async function guardarPago() {
+  const monto = document.getElementById('pagoMonto').value;
+  const fecha = document.getElementById('pagoFecha').value;
+
+  if (!monto || !fecha) {
+    showToast('Completa el monto y la fecha de pago', 'error');
+    return;
+  }
+
+  const { error } = await supabase.from('pagos').insert({
+    cliente_id: CLIENTE_ACTUAL.id,
+    membresia_id: document.getElementById('pagoMembresia').value || null,
+    sucursal_id: parseInt(document.getElementById('pagoSucursal').value),
+    monto: parseFloat(monto),
+    metodo_pago: document.getElementById('pagoMetodo').value,
+    fecha_pago: fecha,
+    observaciones: document.getElementById('pagoObservaciones').value.trim() || null
+  });
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+  showToast('Pago registrado correctamente');
+  closeModal('modalPago');
+  await cargarPagosCliente(CLIENTE_ACTUAL.id);
+}
+
+init();
+</script>
+
+</body>
+</html>
