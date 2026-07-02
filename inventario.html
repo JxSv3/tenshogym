@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TenshoGym - Inventario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
+
+  <div class="page-header">
+    <div><h1>Inventario</h1><p>Productos del refrigerador y registro de ventas</p></div>
+    <div class="flex-gap">
+      <button class="btn btn-secondary" onclick="abrirModalVenta()">🛒 Registrar venta</button>
+      <button class="btn btn-primary" onclick="abrirModalProducto()">+ Nuevo producto</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-4 mb-2">
+    <div class="stat-card"><div class="icon green">📦</div><div class="value" id="statProductos">-</div><div class="label">Productos distintos</div></div>
+    <div class="stat-card"><div class="icon blue">🧃</div><div class="value" id="statUnidades">-</div><div class="label">Unidades totales</div></div>
+    <div class="stat-card"><div class="icon gold">💰</div><div class="value" id="statVentasMes">-</div><div class="label">Ventas del mes</div></div>
+    <div class="stat-card"><div class="icon red">⏳</div><div class="value" id="statPendientes">-</div><div class="label">Ventas pendientes</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" id="tabProductos" onclick="mostrarTab('productos')">Productos</div>
+    <div class="tab" id="tabVentas" onclick="mostrarTab('ventas')">Historial de ventas</div>
+  </div>
+
+  <!-- TAB: Productos -->
+  <div id="panelProductos">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="tablaProductos"><tr><td colspan="5"><div class="loading-spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: Ventas -->
+  <div id="panelVentas" style="display:none">
+    <div class="search-bar">
+      <input type="text" id="buscarVenta" placeholder="Buscar por producto o cliente..." oninput="filtrarVentas()">
+      <select id="filtroEstadoVenta" onchange="filtrarVentas()">
+        <option value="todas">Todos los estados</option>
+        <option value="pagado">Pagado</option>
+        <option value="pendiente">Pendiente</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Producto</th><th>Cant.</th><th>Total</th><th>Cliente</th><th>Estado</th><th>Comentarios</th><th>Acciones</th></tr></thead>
+        <tbody id="tablaVentas"><tr><td colspan="8"><div class="loading-spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div></div></div>
+
+<!-- MODAL: Producto -->
+<div class="modal-overlay" id="modalProducto">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="tituloModalProducto">Nuevo producto</h2>
+      <button class="modal-close" onclick="closeModal('modalProducto')">✕</button>
+    </div>
+    <input type="hidden" id="productoId">
+    <div class="form-group"><label>Nombre del producto *</label><input type="text" id="productoNombre" placeholder="Ej. Agua 500ml"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Precio de venta (USD) *</label><input type="number" id="productoPrecio" step="0.01" min="0" placeholder="1.50"></div>
+      <div class="form-group"><label>Stock disponible *</label><input type="number" id="productoStock" min="0" placeholder="24"></div>
+    </div>
+    <div class="form-group"><label>Descripción</label><textarea id="productoDescripcion" placeholder="Tipo de bebida, marca, tamaño..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalProducto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarProducto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Registrar venta -->
+<div class="modal-overlay" id="modalVenta">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Registrar venta</h2>
+      <button class="modal-close" onclick="closeModal('modalVenta')">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Producto *</label>
+      <select id="ventaProducto" onchange="actualizarPrecioVenta()">
+        <option value="">-- Selecciona un producto --</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Cantidad *</label><input type="number" id="ventaCantidad" min="1" value="1" oninput="actualizarTotalVenta()"></div>
+      <div class="form-group"><label>Precio unitario</label><input type="number" id="ventaPrecioUnit" step="0.01" min="0" oninput="actualizarTotalVenta()"></div>
+    </div>
+    <div class="form-group"><label>Total</label><input type="text" id="ventaTotal" readonly style="opacity:0.7;font-weight:700"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Cliente (opcional)</label>
+        <input type="text" id="ventaCliente" placeholder="Nombre del cliente">
+      </div>
+      <div class="form-group">
+        <label>Estado del pago</label>
+        <select id="ventaEstado">
+          <option value="pagado">Pagado</option>
+          <option value="pendiente">Pendiente</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Comentarios</label><textarea id="ventaComentarios" placeholder="Observaciones, nota de deuda, etc."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalVenta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarVenta()">Registrar venta</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Editar stock -->
+<div class="modal-overlay" id="modalStock">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Ajustar stock</h2>
+      <button class="modal-close" onclick="closeModal('modalStock')">✕</button>
+    </div>
+    <input type="hidden" id="stockProductoId">
+    <p class="text-secondary mb-2" style="font-size:0.85rem" id="stockProductoNombre"></p>
+    <div class="form-group"><label>Nuevo stock</label><input type="number" id="stockNuevo" min="0"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalStock')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarStock()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
+<script src="ui.js"></script>
+<script>
+let PRODUCTOS = [];
+let VENTAS = [];
+
+(async () => {
+  const perfil = await requireAuth(['admin','recepcion']);
+  if (!perfil) return;
+  renderSidebar('inventario', perfil);
+  await Promise.all([cargarProductos(), cargarVentas()]);
+  cargarStats();
+})();
+
+function mostrarTab(tab) {
+  document.getElementById('tabProductos').classList.toggle('active', tab==='productos');
+  document.getElementById('tabVentas').classList.toggle('active', tab==='ventas');
+  document.getElementById('panelProductos').style.display = tab==='productos'?'block':'none';
+  document.getElementById('panelVentas').style.display = tab==='ventas'?'block':'none';
+}
+
+// ============================================================
+// PRODUCTOS
+// ============================================================
+async function cargarProductos() {
+  const {data} = await supabase.from('productos').select('*').order('nombre');
+  PRODUCTOS = data||[];
+  renderProductos();
+  // Actualizar select de ventas
+  const sel = document.getElementById('ventaProducto');
+  sel.innerHTML = '<option value="">-- Selecciona un producto --</option>';
+  PRODUCTOS.filter(p=>p.stock>0).forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.id; o.textContent=`${p.nombre} (${formatMoney(p.precio)} · Stock: ${p.stock})`; o.dataset.precio=p.precio; o.dataset.stock=p.stock;
+    sel.appendChild(o);
+  });
+}
+
+function renderProductos() {
+  const tbody = document.getElementById('tablaProductos');
+  if (!PRODUCTOS.length) { tbody.innerHTML='<tr><td colspan="5" class="text-muted">Sin productos registrados</td></tr>'; return; }
+  tbody.innerHTML = PRODUCTOS.map(p=>{
+    const stockBadge = p.stock===0?'<span class="badge badge-danger">Sin stock</span>':p.stock<=3?`<span class="badge badge-warning">${p.stock} unid.</span>`:`<span class="badge badge-success">${p.stock} unid.</span>`;
+    return `<tr>
+      <td><strong>${p.nombre}</strong>${p.descripcion?`<div class="text-muted" style="font-size:0.78rem">${p.descripcion}</div>`:''}  </td>
+      <td>${formatMoney(p.precio)}</td>
+      <td>${stockBadge}</td>
+      <td>${p.activo===false?'<span class="badge badge-muted">Inactivo</span>':'<span class="badge badge-success">Activo</span>'}</td>
+      <td>
+        <div class="flex-gap">
+          <button class="btn btn-secondary btn-sm" onclick="abrirStock('${p.id}','${p.nombre.replace(/'/g,"\\'")}',${p.stock})">Ajustar stock</button>
+          <button class="btn btn-secondary btn-sm" onclick="editarProducto('${p.id}')">Editar</button>
+          <button class="btn btn-gold btn-sm" onclick="abrirVentaRapida('${p.id}')">Vender</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalProducto() {
+  document.getElementById('tituloModalProducto').textContent='Nuevo producto';
+  document.getElementById('productoId').value='';
+  document.getElementById('productoNombre').value='';
+  document.getElementById('productoPrecio').value='';
+  document.getElementById('productoStock').value='';
+  document.getElementById('productoDescripcion').value='';
+  openModal('modalProducto');
+}
+
+function editarProducto(id) {
+  const p = PRODUCTOS.find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById('tituloModalProducto').textContent='Editar producto';
+  document.getElementById('productoId').value=p.id;
+  document.getElementById('productoNombre').value=p.nombre;
+  document.getElementById('productoPrecio').value=p.precio;
+  document.getElementById('productoStock').value=p.stock;
+  document.getElementById('productoDescripcion').value=p.descripcion||'';
+  openModal('modalProducto');
+}
+
+async function guardarProducto() {
+  const id = document.getElementById('productoId').value;
+  const nombre = document.getElementById('productoNombre').value.trim();
+  const precio = document.getElementById('productoPrecio').value;
+  const stock = document.getElementById('productoStock').value;
+  if (!nombre||!precio||stock==='') { showToast('Completa nombre, precio y stock','error'); return; }
+  const payload = { nombre, precio:parseFloat(precio), stock:parseInt(stock), descripcion:document.getElementById('productoDescripcion').value.trim()||null, activo:true };
+  if (id) {
+    const {error} = await supabase.from('productos').update(payload).eq('id',id);
+    if (error) { showToast('Error: '+error.message,'error'); return; }
+    showToast('Producto actualizado');
+  } else {
+    const {error} = await supabase.from('productos').insert(payload);
+    if (error) { showToast('Error: '+error.message,'error'); return; }
+    showToast('Producto creado');
+  }
+  closeModal('modalProducto');
+  await cargarProductos(); cargarStats();
+}
+
+function abrirStock(id, nombre, stockActual) {
+  document.getElementById('stockProductoId').value=id;
+  document.getElementById('stockProductoNombre').textContent=`${nombre} — Stock actual: ${stockActual}`;
+  document.getElementById('stockNuevo').value=stockActual;
+  openModal('modalStock');
+}
+
+async function guardarStock() {
+  const id = document.getElementById('stockProductoId').value;
+  const stock = parseInt(document.getElementById('stockNuevo').value);
+  if (isNaN(stock)||stock<0) { showToast('Ingresa una cantidad válida','error'); return; }
+  const {error} = await supabase.from('productos').update({stock}).eq('id',id);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast('Stock actualizado');
+  closeModal('modalStock');
+  await cargarProductos(); cargarStats();
+}
+
+// ============================================================
+// VENTAS
+// ============================================================
+async function cargarVentas() {
+  const {data} = await supabase.from('ventas_inventario').select('*, productos(nombre, precio)').order('fecha',{ascending:false}).order('created_at',{ascending:false});
+  VENTAS = data||[];
+  filtrarVentas();
+}
+
+function filtrarVentas() {
+  const txt = document.getElementById('buscarVenta').value.toLowerCase();
+  const estado = document.getElementById('filtroEstadoVenta').value;
+  let lista = VENTAS;
+  if (txt) lista=lista.filter(v=>(v.productos?.nombre||'').toLowerCase().includes(txt)||(v.cliente||'').toLowerCase().includes(txt));
+  if (estado!=='todas') lista=lista.filter(v=>v.estado===estado);
+  renderVentas(lista);
+}
+
+function renderVentas(lista) {
+  const tbody = document.getElementById('tablaVentas');
+  if (!lista.length) { tbody.innerHTML='<tr><td colspan="8" class="text-muted">Sin ventas registradas</td></tr>'; return; }
+  tbody.innerHTML = lista.map(v=>`
+    <tr>
+      <td>${formatDate(v.fecha)}</td>
+      <td><strong>${v.productos?.nombre||'Eliminado'}</strong></td>
+      <td>${v.cantidad}</td>
+      <td>${formatMoney(v.total)}</td>
+      <td>${v.cliente||<span class="text-muted">-</span>}</td>
+      <td>${v.estado==='pendiente'?'<span class="badge badge-warning">Pendiente</span>':'<span class="badge badge-success">Pagado</span>'}</td>
+      <td class="text-secondary" style="font-size:0.82rem">${v.comentarios||'-'}</td>
+      <td>
+        ${v.estado==='pendiente'?`<button class="btn btn-success btn-sm" onclick="marcarPagado('${v.id}')">✓ Cobrar</button>`:''}
+      </td>
+    </tr>`).join('');
+}
+
+function abrirModalVenta() {
+  document.getElementById('ventaProducto').value='';
+  document.getElementById('ventaCantidad').value='1';
+  document.getElementById('ventaPrecioUnit').value='';
+  document.getElementById('ventaTotal').value='';
+  document.getElementById('ventaCliente').value='';
+  document.getElementById('ventaEstado').value='pagado';
+  document.getElementById('ventaComentarios').value='';
+  openModal('modalVenta');
+}
+
+function abrirVentaRapida(productoId) {
+  abrirModalVenta();
+  document.getElementById('ventaProducto').value=productoId;
+  actualizarPrecioVenta();
+}
+
+function actualizarPrecioVenta() {
+  const sel = document.getElementById('ventaProducto');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.precio) {
+    document.getElementById('ventaPrecioUnit').value=opt.dataset.precio;
+    actualizarTotalVenta();
+  }
+}
+
+function actualizarTotalVenta() {
+  const cant = parseFloat(document.getElementById('ventaCantidad').value)||0;
+  const precio = parseFloat(document.getElementById('ventaPrecioUnit').value)||0;
+  document.getElementById('ventaTotal').value = formatMoney(cant*precio);
+}
+
+async function guardarVenta() {
+  const productoId = document.getElementById('ventaProducto').value;
+  const cantidad = parseInt(document.getElementById('ventaCantidad').value);
+  const precioUnit = parseFloat(document.getElementById('ventaPrecioUnit').value);
+
+  if (!productoId||!cantidad||!precioUnit) { showToast('Selecciona producto, cantidad y precio','error'); return; }
+
+  const producto = PRODUCTOS.find(p=>p.id===productoId);
+  if (!producto) return;
+  if (cantidad > producto.stock) { showToast(`Stock insuficiente (disponible: ${producto.stock})`, 'warning'); return; }
+
+  const {error} = await supabase.from('ventas_inventario').insert({
+    producto_id: productoId,
+    cantidad,
+    precio_unitario: precioUnit,
+    total: cantidad*precioUnit,
+    cliente: document.getElementById('ventaCliente').value.trim()||null,
+    estado: document.getElementById('ventaEstado').value,
+    comentarios: document.getElementById('ventaComentarios').value.trim()||null,
+    fecha: hoyISO()
+  });
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+
+  // Descontar del stock
+  await supabase.from('productos').update({stock: producto.stock-cantidad}).eq('id',productoId);
+
+  showToast('Venta registrada');
+  closeModal('modalVenta');
+  await Promise.all([cargarProductos(), cargarVentas()]);
+  cargarStats();
+}
+
+async function marcarPagado(ventaId) {
+  const {error} = await supabase.from('ventas_inventario').update({estado:'pagado'}).eq('id',ventaId);
+  if (error) { showToast('Error: '+error.message,'error'); return; }
+  showToast('Venta cobrada');
+  await cargarVentas(); cargarStats();
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function cargarStats() {
+  document.getElementById('statProductos').textContent = PRODUCTOS.filter(p=>p.activo!==false).length;
+  document.getElementById('statUnidades').textContent = PRODUCTOS.reduce((s,p)=>s+(p.stock||0),0);
+  const mes = hoyISO().substring(0,7);
+  const ventasMes = VENTAS.filter(v=>v.fecha&&v.fecha.startsWith(mes));
+  document.getElementById('statVentasMes').textContent = formatMoney(ventasMes.reduce((s,v)=>s+Number(v.total),0));
+  document.getElementById('statPendientes').textContent = VENTAS.filter(v=>v.estado==='pendiente').length;
+}
+</script>
+</body>
+</html>
