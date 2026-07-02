@@ -10,6 +10,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
 
 <div class="container">
 
@@ -396,12 +402,7 @@
 <script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-(async () => {
-  const perfil = await requireAuth(['admin', 'recepcion']);
-  if (!perfil) return;
-  renderNavbar('clientes', perfil);
-  init();
-})();
+renderSidebar('clientes');
 
 let TODOS_CLIENTES = [];
 let PLANES_BASE = [];
@@ -911,7 +912,10 @@ async function guardarPago() {
   await cargarPagosCliente(CLIENTE_ACTUAL.id);
 }
 
+init();
 </script>
 
+</div></div></div>
+</div></div></div>
 </body>
 </html>
