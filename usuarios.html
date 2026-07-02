@@ -10,6 +10,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
 
 <div class="container">
 
@@ -87,7 +93,7 @@
 (async () => {
   const perfil = await requireAuth(['admin']);
   if (!perfil) return;
-  renderNavbar('usuarios', perfil);
+  renderSidebar('usuarios', perfil);
   cargarUsuarios();
 })();
 
@@ -160,6 +166,9 @@ async function crearUsuario() {
 
   if (errorPerfil) { showToast('Error al guardar perfil: ' + errorPerfil.message, 'error'); return; }
 
+  // Confirma el correo automáticamente (evita el paso manual en Supabase)
+  await supabase.rpc('confirmar_usuario', { user_id: data.user.id });
+
   showToast('Usuario creado correctamente');
   closeModal('modalUsuario');
   await cargarUsuarios();
@@ -180,5 +189,7 @@ async function cambiarEstado(id, activar) {
 }
 </script>
 
+</div></div></div>
+</div></div></div>
 </body>
 </html>
