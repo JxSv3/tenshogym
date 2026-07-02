@@ -13,9 +13,6 @@
 <div class="app-layout">
 <div class="main-content">
 <div class="page-content">
-<div class="app-layout">
-<div class="main-content">
-<div class="page-content">
 
 <div class="container">
 
@@ -210,7 +207,12 @@
 <script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-renderSidebar('membresias');
+(async () => {
+  const perfil = await requireAuth(['admin','recepcion']);
+  if (!perfil) return;
+  renderSidebar('membresias', perfil);
+  init();
+})();
 
 let TODAS_MEMBRESIAS = [];
 let PLANES_BASE = [];
@@ -511,11 +513,8 @@ async function cancelarMembresia() {
   closeModal('modalEditar');
   await cargarMembresias();
 }
-
-init();
 </script>
 
-</div></div></div>
 </div></div></div>
 </body>
 </html>

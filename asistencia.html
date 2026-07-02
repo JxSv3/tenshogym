@@ -13,9 +13,6 @@
 <div class="app-layout">
 <div class="main-content">
 <div class="page-content">
-<div class="app-layout">
-<div class="main-content">
-<div class="page-content">
 
 <div class="container">
 
@@ -115,7 +112,14 @@
 <script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-renderSidebar('asistencia');
+(async () => {
+  const perfil = await requireAuth(['admin','recepcion']);
+  if (!perfil) return;
+  renderSidebar('asistencia', perfil);
+  document.getElementById('filtroFecha').value = hoyISO();
+  await cargarClientesBusqueda();
+  cargarHistorial();
+})();
 
 let CLIENTE_SELECCIONADO = null;
 let timeoutBusqueda = null;
@@ -277,13 +281,8 @@ async function cargarHistorial() {
     </tr>
   `).join('');
 }
-
-// Inicializar con la fecha de hoy
-document.getElementById('filtroFecha').value = hoyISO();
-cargarHistorial();
 </script>
 
-</div></div></div>
 </div></div></div>
 </body>
 </html>
