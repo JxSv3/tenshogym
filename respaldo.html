@@ -10,58 +10,41 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
-<div class="container">
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
 
   <div class="page-header">
-    <div>
-      <h1>Respaldos y almacenamiento</h1>
-      <p>Descarga, restaura tu información y revisa el espacio usado en Supabase</p>
-    </div>
+    <div><h1>Respaldos</h1><p>Descarga, restaura y monitorea el espacio en Supabase</p></div>
   </div>
 
-  <!-- Espacio utilizado -->
   <div class="card mb-2">
-    <h3>📊 Espacio utilizado en la base de datos</h3>
+    <h3>📊 Espacio utilizado</h3>
     <div id="espacioInfo" class="mb-1"><div class="loading-spinner"></div></div>
-    <div class="progress-bar">
-      <div class="progress-bar-fill" id="espacioBarra" style="width:0%; background:var(--success)"></div>
-    </div>
+    <div class="progress-bar"><div class="progress-bar-fill" id="espacioBarra" style="width:0%;background:var(--success)"></div></div>
     <div class="form-group mt-2" style="max-width:220px">
       <label>Límite de tu plan (MB)</label>
-      <input type="number" id="limiteMB" value="500" onchange="guardarLimite(); cargarEspacio()">
+      <input type="number" id="limiteMB" value="500" onchange="localStorage.setItem('tenshogym_limite_mb',this.value);cargarEspacio()">
     </div>
-    <p class="text-muted" style="font-size:0.78rem">
-      El plan gratuito de Supabase incluye 500 MB de base de datos. Ajusta este valor si tu plan es distinto.
-    </p>
+    <p class="text-muted" style="font-size:0.78rem">El plan gratuito de Supabase incluye 500 MB de base de datos.</p>
   </div>
 
-  <!-- Descargar respaldo -->
   <div class="card mb-2">
     <h3>⬇️ Descargar respaldo</h3>
-    <p class="text-secondary mb-2" style="font-size:0.85rem">
-      Genera un archivo JSON con toda la información: sucursales, planes, clientes, membresías, pagos y asistencias.
-    </p>
+    <p class="text-secondary mb-2" style="font-size:0.85rem">Genera un JSON con toda la información: sucursales, planes, clientes, membresías, pagos, asistencias e inventario.</p>
     <button class="btn btn-primary" onclick="descargarRespaldo()">⬇️ Descargar respaldo completo</button>
-    <span id="descargaEstado" class="text-muted" style="margin-left:10px; font-size:0.85rem"></span>
+    <span id="descargaEstado" class="text-muted" style="margin-left:10px;font-size:0.85rem"></span>
   </div>
 
-  <!-- Restaurar respaldo -->
   <div class="card">
     <h3>♻️ Restaurar respaldo</h3>
-    <p class="text-secondary mb-2" style="font-size:0.85rem">
-      Sube un archivo JSON generado por esta misma herramienta. Los registros existentes con el mismo ID
-      serán actualizados; los que no existan se crearán. <strong>No elimina datos actuales</strong> que no
-      estén en el archivo.
-    </p>
-    <div class="form-group" style="max-width:400px">
-      <input type="file" id="archivoRespaldo" accept="application/json">
-    </div>
+    <p class="text-secondary mb-2" style="font-size:0.85rem">Sube un JSON generado por esta misma herramienta. Los registros con el mismo ID se actualizan; los nuevos se crean. <strong>No elimina datos actuales.</strong></p>
+    <div class="form-group" style="max-width:400px"><input type="file" id="archivoRespaldo" accept="application/json"></div>
     <button class="btn btn-gold" onclick="restaurarRespaldo()">♻️ Restaurar desde archivo</button>
     <div id="restauraEstado" class="mt-1 text-muted" style="font-size:0.85rem"></div>
   </div>
 
-</div>
+</div></div></div>
 
 <script src="supabase-config.js"></script>
 <script src="auth.js"></script>
@@ -70,116 +53,60 @@
 (async () => {
   const perfil = await requireAuth(['admin']);
   if (!perfil) return;
-  renderNavbar('respaldo', perfil);
+  renderSidebar('respaldo', perfil);
   cargarEspacio();
 })();
 
-const TABLAS_RESPALDO = ['sucursales', 'planes_base', 'clientes', 'membresias', 'pagos', 'asistencias'];
-
-// ============================================================
-// ESPACIO UTILIZADO
-// ============================================================
-function guardarLimite() {
-  localStorage.setItem('tenshogym_limite_mb', document.getElementById('limiteMB').value);
-}
+const TABLAS = ['sucursales','planes_base','clientes','membresias','pagos','asistencias','productos','ventas_inventario'];
 
 async function cargarEspacio() {
-  const limite = parseFloat(localStorage.getItem('tenshogym_limite_mb') || '500');
+  const limite = parseFloat(localStorage.getItem('tenshogym_limite_mb')||'500');
   document.getElementById('limiteMB').value = limite;
-
-  const { data, error } = await supabase.rpc('obtener_tamano_bd');
+  const {data,error} = await supabase.rpc('obtener_tamano_bd');
   const info = document.getElementById('espacioInfo');
   const barra = document.getElementById('espacioBarra');
-
-  if (error || data == null) {
-    info.innerHTML = `<span class="text-muted">No se pudo leer el tamaño de la base de datos. Asegúrate de haber creado la función "obtener_tamano_bd" en Supabase (ver instrucciones).</span>`;
-    return;
-  }
-
-  const usadoMB = data / (1024 * 1024);
-  const porcentaje = Math.min(100, (usadoMB / limite) * 100);
-
-  info.innerHTML = `<strong>${usadoMB.toFixed(2)} MB</strong> usados de ${limite} MB (${porcentaje.toFixed(1)}%)`;
-  barra.style.width = porcentaje + '%';
-  barra.style.background = porcentaje > 90 ? 'var(--danger)' : porcentaje > 70 ? 'var(--warning)' : 'var(--success)';
+  if (error||data==null) { info.innerHTML='<span class="text-muted">No se pudo leer el tamaño. Asegúrate de haber creado la función "obtener_tamano_bd".</span>'; return; }
+  const mb = data/(1024*1024), pct = Math.min(100,(mb/limite)*100);
+  info.innerHTML = `<strong>${mb.toFixed(2)} MB</strong> usados de ${limite} MB (${pct.toFixed(1)}%)`;
+  barra.style.width = pct+'%';
+  barra.style.background = pct>90?'var(--danger)':pct>70?'var(--warning)':'var(--success)';
 }
 
-// ============================================================
-// DESCARGAR RESPALDO
-// ============================================================
 async function descargarRespaldo() {
-  document.getElementById('descargaEstado').textContent = 'Generando...';
-
-  const respaldo = { fecha_respaldo: new Date().toISOString() };
-
-  for (const tabla of TABLAS_RESPALDO) {
-    const { data, error } = await supabase.from(tabla).select('*');
-    if (error) {
-      showToast(`Error al exportar ${tabla}: ${error.message}`, 'error');
-      document.getElementById('descargaEstado').textContent = '';
-      return;
-    }
-    respaldo[tabla] = data || [];
+  document.getElementById('descargaEstado').textContent='Generando...';
+  const respaldo = {fecha_respaldo:new Date().toISOString()};
+  for (const t of TABLAS) {
+    const {data,error} = await supabase.from(t).select('*');
+    if (error) { showToast('Error: '+error.message,'error'); document.getElementById('descargaEstado').textContent=''; return; }
+    respaldo[t]=data||[];
   }
-
-  const blob = new Blob([JSON.stringify(respaldo, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
+  const blob = new Blob([JSON.stringify(respaldo,null,2)],{type:'application/json'});
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `tenshogym_backup_${hoyISO()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-
-  document.getElementById('descargaEstado').textContent = '¡Listo!';
-  showToast('Respaldo descargado correctamente');
+  a.href=URL.createObjectURL(blob); a.download=`tenshogym_backup_${hoyISO()}.json`; a.click();
+  document.getElementById('descargaEstado').textContent='¡Listo!';
+  showToast('Respaldo descargado');
 }
 
-// ============================================================
-// RESTAURAR RESPALDO
-// ============================================================
 async function restaurarRespaldo() {
   const input = document.getElementById('archivoRespaldo');
   const estado = document.getElementById('restauraEstado');
-
-  if (!input.files || input.files.length === 0) {
-    showToast('Selecciona un archivo de respaldo', 'error');
-    return;
-  }
-
-  if (!confirm('¿Restaurar este respaldo? Se actualizarán los registros existentes con el mismo ID y se crearán los que falten. Esta acción no se puede deshacer.')) return;
-
-  const texto = await input.files[0].text();
+  if (!input.files?.length) { showToast('Selecciona un archivo','error'); return; }
+  if (!confirm('¿Restaurar este respaldo? No se pueden deshacer los cambios.')) return;
   let respaldo;
-  try {
-    respaldo = JSON.parse(texto);
-  } catch (e) {
-    showToast('El archivo no es un JSON válido', 'error');
-    return;
-  }
-
-  for (const tabla of TABLAS_RESPALDO) {
-    const filas = respaldo[tabla];
-    if (!Array.isArray(filas) || filas.length === 0) continue;
-
-    estado.textContent = `Restaurando ${tabla}... (${filas.length} registros)`;
-
-    // Insertar en lotes de 200 para evitar payloads demasiado grandes
-    for (let i = 0; i < filas.length; i += 200) {
-      const lote = filas.slice(i, i + 200);
-      const { error } = await supabase.from(tabla).upsert(lote, { onConflict: 'id' });
-      if (error) {
-        showToast(`Error al restaurar ${tabla}: ${error.message}`, 'error');
-        estado.textContent = `Se detuvo en la tabla "${tabla}"`;
-        return;
-      }
+  try { respaldo = JSON.parse(await input.files[0].text()); }
+  catch { showToast('Archivo JSON inválido','error'); return; }
+  for (const t of TABLAS) {
+    const filas = respaldo[t];
+    if (!Array.isArray(filas)||filas.length===0) continue;
+    estado.textContent=`Restaurando ${t}... (${filas.length})`;
+    for (let i=0;i<filas.length;i+=200) {
+      const {error} = await supabase.from(t).upsert(filas.slice(i,i+200),{onConflict:'id'});
+      if (error) { showToast('Error en '+t+': '+error.message,'error'); estado.textContent='Detenido en "'+t+'"'; return; }
     }
   }
-
-  estado.textContent = '¡Restauración completada!';
-  showToast('Respaldo restaurado correctamente');
-  await cargarEspacio();
+  estado.textContent='¡Restauración completada!';
+  showToast('Respaldo restaurado');
 }
 </script>
-
 </body>
 </html>
