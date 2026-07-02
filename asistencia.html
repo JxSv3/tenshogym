@@ -10,6 +10,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
 
 <div class="container">
 
@@ -109,32 +115,17 @@
 <script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
-(async () => {
-  const perfil = await requireAuth(['admin', 'recepcion']);
-  if (!perfil) return;
-  renderNavbar('asistencia', perfil);
-  document.getElementById('filtroFecha').value = hoyISO();
-  cargarClientesBusqueda();
-  cargarHistorial();
-})();
+renderSidebar('asistencia');
 
 let CLIENTE_SELECCIONADO = null;
 let timeoutBusqueda = null;
-let TODOS_CLIENTES_ASIST = [];
-let RESULTADOS_ACTUALES = [];
-
-async function cargarClientesBusqueda() {
-  const { data, error } = await supabase.from('clientes').select('*').eq('estado', 'activo');
-  if (error) { showToast('Error: ' + error.message, 'error'); return; }
-  TODOS_CLIENTES_ASIST = data || [];
-}
 
 // ============================================================
-// BÚSQUEDA DE CLIENTES (autocompletado, por nombre completo o cédula)
+// BÚSQUEDA DE CLIENTES (autocompletado)
 // ============================================================
 function buscarClientes() {
   clearTimeout(timeoutBusqueda);
-  const texto = document.getElementById('buscarCliente').value.trim().toLowerCase();
+  const texto = document.getElementById('buscarCliente').value.trim();
   const resultados = document.getElementById('resultadosBusqueda');
 
   if (texto.length < 2) {
@@ -142,29 +133,33 @@ function buscarClientes() {
     return;
   }
 
-  timeoutBusqueda = setTimeout(() => {
-    RESULTADOS_ACTUALES = TODOS_CLIENTES_ASIST.filter(c =>
-      `${c.nombre} ${c.apellido}`.toLowerCase().includes(texto) ||
-      (c.cedula || '').toLowerCase().includes(texto)
-    ).slice(0, 10);
+  timeoutBusqueda = setTimeout(async () => {
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('estado', 'activo')
+      .or(`nombre.ilike.%${texto}%,apellido.ilike.%${texto}%,cedula.ilike.%${texto}%`)
+      .limit(10);
 
-    if (RESULTADOS_ACTUALES.length === 0) {
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+    if (!data || data.length === 0) {
       resultados.innerHTML = '<div style="padding:12px" class="text-muted">Sin resultados</div>';
       resultados.style.display = 'block';
       return;
     }
 
-    resultados.innerHTML = RESULTADOS_ACTUALES.map((c, i) => `
+    resultados.innerHTML = data.map(c => `
       <div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color)"
            onmouseover="this.style.background='var(--bg-hover)'"
            onmouseout="this.style.background='transparent'"
-           onclick="seleccionarCliente(${i})">
+           onclick='seleccionarCliente(${JSON.stringify(c).replace(/'/g, "&apos;")})'>
         <strong>${c.nombre} ${c.apellido}</strong>
         <div class="text-muted" style="font-size:0.78rem">${c.cedula || 'Sin cédula'} · ${nombreSucursal(c.sucursal_id)}</div>
       </div>
     `).join('');
     resultados.style.display = 'block';
-  }, 200);
+  }, 250);
 }
 
 // Oculta resultados al hacer click fuera
@@ -174,8 +169,7 @@ document.addEventListener('click', (e) => {
   }
 });
 
-async function seleccionarCliente(indice) {
-  const cliente = RESULTADOS_ACTUALES[indice];
+async function seleccionarCliente(cliente) {
   CLIENTE_SELECCIONADO = cliente;
   document.getElementById('buscarCliente').value = `${cliente.nombre} ${cliente.apellido}`;
   document.getElementById('resultadosBusqueda').style.display = 'none';
@@ -284,7 +278,12 @@ async function cargarHistorial() {
   `).join('');
 }
 
+// Inicializar con la fecha de hoy
+document.getElementById('filtroFecha').value = hoyISO();
+cargarHistorial();
 </script>
 
+</div></div></div>
+</div></div></div>
 </body>
 </html>
