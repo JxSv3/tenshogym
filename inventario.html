@@ -290,7 +290,7 @@ function renderVentas(lista) {
       <td><strong>${v.productos?.nombre||'Eliminado'}</strong></td>
       <td>${v.cantidad}</td>
       <td>${formatMoney(v.total)}</td>
-      <td>${v.cliente||<span class="text-muted">-</span>}</td>
+      <td>${v.cliente||'-'}</td>
       <td>${v.estado==='pendiente'?'<span class="badge badge-warning">Pendiente</span>':'<span class="badge badge-success">Pagado</span>'}</td>
       <td class="text-secondary" style="font-size:0.82rem">${v.comentarios||'-'}</td>
       <td>
