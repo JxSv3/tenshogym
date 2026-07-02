@@ -10,273 +10,139 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
-<div class="container">
+<div class="app-layout">
+<div class="main-content">
+<div class="page-content">
 
   <div class="page-header">
-    <div>
-      <h1>Dashboard</h1>
-      <p>Resumen general de TenshoGym</p>
-    </div>
-    <div class="flex-gap">
-      <select id="filtroSucursal" onchange="cargarDashboard()">
-        <option value="todas">Todas las sucursales</option>
-        <option value="1">Sucursal Calderon</option>
-        <option value="2">Sucursal Marianas</option>
-      </select>
-    </div>
+    <div><h1>Dashboard</h1><p>Resumen general de TenshoGym</p></div>
+    <select id="filtroSucursal" onchange="cargarDashboard()">
+      <option value="todas">Todas las sucursales</option>
+      <option value="1">Sucursal Calderon</option>
+      <option value="2">Sucursal Marianas</option>
+    </select>
   </div>
 
-  <!-- Tarjetas de estadísticas -->
   <div class="grid grid-4 mb-2">
-    <div class="stat-card">
-      <div class="icon green">👥</div>
-      <div class="value" id="statClientesActivos">-</div>
-      <div class="label">Clientes activos</div>
-      <div class="sub" id="statClientesSub">&nbsp;</div>
-    </div>
-
-    <div class="stat-card">
-      <div class="icon gold">💰</div>
-      <div class="value" id="statIngresosMes">-</div>
-      <div class="label">Ingresos del mes</div>
-      <div class="sub" id="statIngresosSub">&nbsp;</div>
-    </div>
-
-    <div class="stat-card">
-      <div class="icon red">⏰</div>
-      <div class="value" id="statPorVencer">-</div>
-      <div class="label">Membresías por vencer (7 días)</div>
-      <div class="sub" id="statVencidasSub">&nbsp;</div>
-    </div>
-
-    <div class="stat-card">
-      <div class="icon blue">✅</div>
-      <div class="value" id="statAsistenciasHoy">-</div>
-      <div class="label">Asistencias hoy</div>
-      <div class="sub" id="statAsistenciasSub">&nbsp;</div>
-    </div>
+    <div class="stat-card"><div class="icon green">👥</div><div class="value" id="statClientesActivos">-</div><div class="label">Clientes activos</div><div class="sub" id="statClientesSub">&nbsp;</div></div>
+    <div class="stat-card"><div class="icon gold">💰</div><div class="value" id="statIngresosMes">-</div><div class="label">Ingresos del mes</div><div class="sub" id="statIngresosSub">&nbsp;</div></div>
+    <div class="stat-card"><div class="icon red">⏰</div><div class="value" id="statPorVencer">-</div><div class="label">Membresías por vencer (7d)</div><div class="sub" id="statVencidasSub">&nbsp;</div></div>
+    <div class="stat-card"><div class="icon blue">✅</div><div class="value" id="statAsistenciasHoy">-</div><div class="label">Asistencias hoy</div><div class="sub" id="statAsistenciasSub">&nbsp;</div></div>
   </div>
 
-  <!-- Resumen por sucursal -->
   <div class="grid grid-2 mb-2">
-    <div class="card">
-      <h3>📍 Sucursal Calderon</h3>
-      <div id="resumenSucursal1">
-        <div class="loading-spinner"></div>
-      </div>
-    </div>
-    <div class="card">
-      <h3>📍 Sucursal Marianas</h3>
-      <div id="resumenSucursal2">
-        <div class="loading-spinner"></div>
-      </div>
-    </div>
+    <div class="card"><h3>📍 Sucursal Calderon</h3><div id="resumenSucursal1"><div class="loading-spinner"></div></div></div>
+    <div class="card"><h3>📍 Sucursal Marianas</h3><div id="resumenSucursal2"><div class="loading-spinner"></div></div></div>
   </div>
 
-  <!-- Alertas de vencimiento -->
   <div class="card">
     <div class="flex-between mb-1">
       <h3 style="margin:0">⚠️ Membresías por vencer o vencidas</h3>
-      <a href="membresias.html" class="btn btn-secondary btn-sm">Ver todas las membresías</a>
+      <a href="membresias.html" class="btn btn-secondary btn-sm">Ver todas</a>
     </div>
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr>
-            <th>Cliente</th>
-            <th>Sucursal</th>
-            <th>Plan</th>
-            <th>Precio</th>
-            <th>Vence</th>
-            <th>Estado</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="tablaAlertas">
-          <tr><td colspan="7"><div class="loading-spinner"></div></td></tr>
-        </tbody>
+        <thead><tr><th>Cliente</th><th>Sucursal</th><th>Plan</th><th>Precio</th><th>Vence</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tablaAlertas"><tr><td colspan="7"><div class="loading-spinner"></div></td></tr></tbody>
       </table>
     </div>
-    <div id="alertasVacio" class="empty-state" style="display:none">
-      <div class="icon">🎉</div>
-      <p>No hay membresías por vencer en los próximos 7 días.</p>
-    </div>
+    <div id="alertasVacio" class="empty-state" style="display:none"><div class="icon">🎉</div><p>No hay membresías por vencer en los próximos 7 días.</p></div>
   </div>
 
-</div>
+</div></div></div>
 
 <script src="supabase-config.js"></script>
 <script src="auth.js"></script>
 <script src="ui.js"></script>
 <script>
 (async () => {
-  const perfil = await requireAuth(['admin', 'recepcion']);
+  const perfil = await requireAuth(['admin','recepcion']);
   if (!perfil) return;
-  renderNavbar('dashboard', perfil);
+  renderSidebar('dashboard', perfil);
   cargarDashboard();
 })();
 
 async function cargarDashboard() {
-  const sucursalFiltro = document.getElementById('filtroSucursal').value; // 'todas' | '1' | '2'
+  const filtro = document.getElementById('filtroSucursal').value;
   const hoy = hoyISO();
+  const primerDia = hoy.substring(0,8)+'01';
 
-  // ----------------------------------------------------------
-  // 1. CLIENTES ACTIVOS
-  // ----------------------------------------------------------
-  let qClientes = supabase.from('clientes').select('id, sucursal_id', { count: 'exact' }).eq('estado', 'activo');
-  if (sucursalFiltro !== 'todas') qClientes = qClientes.eq('sucursal_id', sucursalFiltro);
-  const { data: clientesActivos, count: totalClientes } = await qClientes;
+  let qC = supabase.from('clientes').select('id,sucursal_id',{count:'exact'}).eq('estado','activo');
+  if (filtro!=='todas') qC=qC.eq('sucursal_id',filtro);
+  const {count:totalClientes} = await qC;
+  document.getElementById('statClientesActivos').textContent = totalClientes??0;
 
-  document.getElementById('statClientesActivos').textContent = totalClientes ?? 0;
+  const {data:todos} = await supabase.from('clientes').select('id,sucursal_id,estado');
+  const cN=(todos||[]).filter(c=>c.sucursal_id===1&&c.estado==='activo').length;
+  const cS=(todos||[]).filter(c=>c.sucursal_id===2&&c.estado==='activo').length;
+  document.getElementById('statClientesSub').textContent = filtro==='todas'?`Calderon: ${cN} · Marianas: ${cS}`:(filtro==='1'?'Sucursal Calderon':'Sucursal Marianas');
 
-  // Conteo por sucursal (siempre, para las tarjetas de resumen)
-  const { data: todosClientes } = await supabase.from('clientes').select('id, sucursal_id, estado');
-  const clientesNorte = (todosClientes || []).filter(c => c.sucursal_id === 1 && c.estado === 'activo').length;
-  const clientesSur = (todosClientes || []).filter(c => c.sucursal_id === 2 && c.estado === 'activo').length;
+  let qP = supabase.from('pagos').select('monto,sucursal_id').gte('fecha_pago',primerDia);
+  if (filtro!=='todas') qP=qP.eq('sucursal_id',filtro);
+  const {data:pagosFiltro} = await qP;
+  document.getElementById('statIngresosMes').textContent = formatMoney((pagosFiltro||[]).reduce((s,p)=>s+Number(p.monto),0));
 
-  if (sucursalFiltro === 'todas') {
-    document.getElementById('statClientesSub').textContent = `Calderon: ${clientesNorte} · Marianas: ${clientesSur}`;
-  } else {
-    document.getElementById('statClientesSub').textContent = sucursalFiltro === '1'
-      ? `Sucursal Calderon`
-      : `Sucursal Marianas`;
-  }
+  const {data:pagosT} = await supabase.from('pagos').select('monto,sucursal_id').gte('fecha_pago',primerDia);
+  const iN=(pagosT||[]).filter(p=>p.sucursal_id===1).reduce((s,p)=>s+Number(p.monto),0);
+  const iS=(pagosT||[]).filter(p=>p.sucursal_id===2).reduce((s,p)=>s+Number(p.monto),0);
+  document.getElementById('statIngresosSub').textContent = filtro==='todas'?`Calderon: ${formatMoney(iN)} · Marianas: ${formatMoney(iS)}`:'Este mes';
 
-  // ----------------------------------------------------------
-  // 2. INGRESOS DEL MES
-  // ----------------------------------------------------------
-  const primerDiaMes = hoy.substring(0, 8) + '01';
-  let qPagos = supabase.from('pagos').select('monto, sucursal_id, fecha_pago').gte('fecha_pago', primerDiaMes);
-  if (sucursalFiltro !== 'todas') qPagos = qPagos.eq('sucursal_id', sucursalFiltro);
-  const { data: pagosMes } = await qPagos;
+  const {data:mems} = await supabase.from('membresias').select('id,nombre_plan,precio,fecha_fin,estado,cliente_id,clientes(nombre,apellido,sucursal_id,estado)').eq('estado','activa').order('fecha_fin',{ascending:true});
+  let lista = (mems||[]).filter(m=>m.clientes&&m.clientes.estado==='activo');
+  if (filtro!=='todas') lista=lista.filter(m=>m.clientes.sucursal_id===parseInt(filtro));
 
-  const totalIngresos = (pagosMes || []).reduce((sum, p) => sum + Number(p.monto), 0);
-  document.getElementById('statIngresosMes').textContent = formatMoney(totalIngresos);
-
-  const { data: pagosMesTodos } = await supabase.from('pagos').select('monto, sucursal_id').gte('fecha_pago', primerDiaMes);
-  const ingresosNorte = (pagosMesTodos || []).filter(p => p.sucursal_id === 1).reduce((s,p) => s + Number(p.monto), 0);
-  const ingresosSur = (pagosMesTodos || []).filter(p => p.sucursal_id === 2).reduce((s,p) => s + Number(p.monto), 0);
-
-  if (sucursalFiltro === 'todas') {
-    document.getElementById('statIngresosSub').textContent = `Calderon: ${formatMoney(ingresosNorte)} · Marianas: ${formatMoney(ingresosSur)}`;
-  } else {
-    document.getElementById('statIngresosSub').textContent = 'Este mes';
-  }
-
-  // ----------------------------------------------------------
-  // 3. MEMBRESÍAS POR VENCER / VENCIDAS
-  // ----------------------------------------------------------
-  const { data: membresias } = await supabase
-    .from('membresias')
-    .select('id, nombre_plan, precio, fecha_fin, estado, cliente_id, clientes(nombre, apellido, sucursal_id, estado)')
-    .eq('estado', 'activa')
-    .order('fecha_fin', { ascending: true });
-
-  let listaFiltrada = (membresias || []).filter(m => m.clientes && m.clientes.estado === 'activo');
-  if (sucursalFiltro !== 'todas') {
-    listaFiltrada = listaFiltrada.filter(m => m.clientes.sucursal_id === parseInt(sucursalFiltro));
-  }
-
-  const limiteAlerta = new Date(hoy + 'T00:00:00');
-  limiteAlerta.setDate(limiteAlerta.getDate() + DIAS_ALERTA_VENCIMIENTO);
-  const limiteAlertaISO = limiteAlerta.toISOString().split('T')[0];
-
-  const porVencerOVencidas = listaFiltrada.filter(m => m.fecha_fin <= limiteAlertaISO);
-  const vencidas = listaFiltrada.filter(m => diasRestantes(m.fecha_fin) < 0);
-
-  document.getElementById('statPorVencer').textContent = porVencerOVencidas.length;
+  const limite = new Date(hoy+'T00:00:00'); limite.setDate(limite.getDate()+DIAS_ALERTA_VENCIMIENTO);
+  const limISO = limite.toISOString().split('T')[0];
+  const alertas = lista.filter(m=>m.fecha_fin<=limISO);
+  const vencidas = alertas.filter(m=>diasRestantes(m.fecha_fin)<0);
+  document.getElementById('statPorVencer').textContent = alertas.length;
   document.getElementById('statVencidasSub').textContent = `${vencidas.length} ya vencidas`;
 
-  // Render tabla de alertas
   const tbody = document.getElementById('tablaAlertas');
   const vacio = document.getElementById('alertasVacio');
-
-  if (porVencerOVencidas.length === 0) {
-    tbody.innerHTML = '';
-    document.querySelector('#tablaAlertas').closest('.table-wrap').style.display = 'none';
-    vacio.style.display = 'block';
+  if (alertas.length===0) {
+    tbody.closest('.table-wrap').style.display='none'; vacio.style.display='block';
   } else {
-    document.querySelector('#tablaAlertas').closest('.table-wrap').style.display = '';
-    vacio.style.display = 'none';
-
-    tbody.innerHTML = porVencerOVencidas.slice(0, 15).map(m => `
+    tbody.closest('.table-wrap').style.display=''; vacio.style.display='none';
+    tbody.innerHTML = alertas.slice(0,15).map(m=>`
       <tr>
         <td><strong>${m.clientes.nombre} ${m.clientes.apellido}</strong></td>
         <td>${pillSucursal(m.clientes.sucursal_id)}</td>
-        <td>${m.nombre_plan}</td>
-        <td>${formatMoney(m.precio)}</td>
-        <td>${formatDate(m.fecha_fin)}</td>
-        <td>${badgeEstadoMembresia(m.fecha_fin)}</td>
+        <td>${m.nombre_plan}</td><td>${formatMoney(m.precio)}</td>
+        <td>${formatDate(m.fecha_fin)}</td><td>${badgeEstadoMembresia(m.fecha_fin)}</td>
         <td><a href="membresias.html" class="btn btn-secondary btn-sm">Renovar</a></td>
-      </tr>
-    `).join('');
+      </tr>`).join('');
   }
 
-  // ----------------------------------------------------------
-  // 4. ASISTENCIAS HOY
-  // ----------------------------------------------------------
-  let qAsist = supabase.from('asistencias').select('id, sucursal_id', { count: 'exact' }).eq('fecha', hoy);
-  if (sucursalFiltro !== 'todas') qAsist = qAsist.eq('sucursal_id', sucursalFiltro);
-  const { count: asistHoy } = await qAsist;
-  document.getElementById('statAsistenciasHoy').textContent = asistHoy ?? 0;
+  let qA = supabase.from('asistencias').select('id,sucursal_id',{count:'exact'}).eq('fecha',hoy);
+  if (filtro!=='todas') qA=qA.eq('sucursal_id',filtro);
+  const {count:asistHoy} = await qA;
+  document.getElementById('statAsistenciasHoy').textContent = asistHoy??0;
 
-  const { data: asistTodas } = await supabase.from('asistencias').select('sucursal_id').eq('fecha', hoy);
-  const asistNorte = (asistTodas || []).filter(a => a.sucursal_id === 1).length;
-  const asistSur = (asistTodas || []).filter(a => a.sucursal_id === 2).length;
-  if (sucursalFiltro === 'todas') {
-    document.getElementById('statAsistenciasSub').textContent = `Calderon: ${asistNorte} · Marianas: ${asistSur}`;
-  } else {
-    document.getElementById('statAsistenciasSub').textContent = 'Hoy';
-  }
+  const {data:asistT} = await supabase.from('asistencias').select('sucursal_id').eq('fecha',hoy);
+  const aN=(asistT||[]).filter(a=>a.sucursal_id===1).length;
+  const aS=(asistT||[]).filter(a=>a.sucursal_id===2).length;
+  document.getElementById('statAsistenciasSub').textContent = filtro==='todas'?`Calderon: ${aN} · Marianas: ${aS}`:'Hoy';
 
-  // ----------------------------------------------------------
-  // 5. RESUMEN POR SUCURSAL (tarjetas inferiores)
-  // ----------------------------------------------------------
-  renderResumenSucursal(1, 'resumenSucursal1', { clientesActivos: clientesNorte, ingresos: ingresosNorte, asistencias: asistNorte, listaFiltrada: listaFiltrada, todasMembresias: listaFiltrada });
-  renderResumenSucursal(2, 'resumenSucursal2', { clientesActivos: clientesSur, ingresos: ingresosSur, asistencias: asistSur, listaFiltrada: listaFiltrada, todasMembresias: listaFiltrada });
+  const {data:memsT} = await supabase.from('membresias').select('fecha_fin,estado,clientes(sucursal_id,estado)').eq('estado','activa');
+  const actT=(memsT||[]).filter(m=>m.clientes&&m.clientes.estado==='activo');
+  const pvN=actT.filter(m=>m.clientes.sucursal_id===1&&m.fecha_fin<=limISO).length;
+  const pvS=actT.filter(m=>m.clientes.sucursal_id===2&&m.fecha_fin<=limISO).length;
 
-  // Para el resumen necesitamos la lista completa sin filtro de sucursal del dashboard
-  const { data: membresiasTodas } = await supabase
-    .from('membresias')
-    .select('fecha_fin, estado, clientes(sucursal_id, estado)')
-    .eq('estado', 'activa');
-
-  const activasFiltradas = (membresiasTodas || []).filter(m => m.clientes && m.clientes.estado === 'activo');
-  const porVencerNorte = activasFiltradas.filter(m => m.clientes.sucursal_id === 1 && m.fecha_fin <= limiteAlertaISO).length;
-  const porVencerSur = activasFiltradas.filter(m => m.clientes.sucursal_id === 2 && m.fecha_fin <= limiteAlertaISO).length;
-
-  renderResumenSucursal(1, 'resumenSucursal1', { clientesActivos: clientesNorte, ingresos: ingresosNorte, asistencias: asistNorte, porVencer: porVencerNorte });
-  renderResumenSucursal(2, 'resumenSucursal2', { clientesActivos: clientesSur, ingresos: ingresosSur, asistencias: asistSur, porVencer: porVencerSur });
+  ['resumenSucursal1','resumenSucursal2'].forEach((id,i)=>{
+    const sN=i===0; const el=document.getElementById(id);
+    el.innerHTML=`
+      <div class="grid grid-3" style="gap:10px">
+        <div><div class="text-secondary" style="font-size:0.72rem;font-weight:700;text-transform:uppercase;margin-bottom:4px">Clientes</div><div style="font-size:1.4rem;font-weight:800">${sN?cN:cS}</div></div>
+        <div><div class="text-secondary" style="font-size:0.72rem;font-weight:700;text-transform:uppercase;margin-bottom:4px">Ingresos mes</div><div style="font-size:1.4rem;font-weight:800">${formatMoney(sN?iN:iS)}</div></div>
+        <div><div class="text-secondary" style="font-size:0.72rem;font-weight:700;text-transform:uppercase;margin-bottom:4px">Asist. hoy</div><div style="font-size:1.4rem;font-weight:800">${sN?aN:aS}</div></div>
+      </div>
+      <div class="mt-2 flex-between mb-1">
+        <span class="text-secondary" style="font-size:0.78rem;font-weight:700">Por vencer (7d)</span>
+        <span class="badge ${(sN?pvN:pvS)>0?'badge-warning':'badge-success'}">${sN?pvN:pvS}</span>
+      </div>`;
+  });
 }
-
-function renderResumenSucursal(sucursalId, elementId, data) {
-  const el = document.getElementById(elementId);
-  el.innerHTML = `
-    <div class="grid grid-3" style="gap:10px">
-      <div>
-        <div class="text-secondary" style="font-size:0.75rem;font-weight:700;text-transform:uppercase;margin-bottom:4px">Clientes</div>
-        <div style="font-size:1.4rem;font-weight:800">${data.clientesActivos}</div>
-      </div>
-      <div>
-        <div class="text-secondary" style="font-size:0.75rem;font-weight:700;text-transform:uppercase;margin-bottom:4px">Ingresos mes</div>
-        <div style="font-size:1.4rem;font-weight:800">${formatMoney(data.ingresos)}</div>
-      </div>
-      <div>
-        <div class="text-secondary" style="font-size:0.75rem;font-weight:700;text-transform:uppercase;margin-bottom:4px">Asist. hoy</div>
-        <div style="font-size:1.4rem;font-weight:800">${data.asistencias}</div>
-      </div>
-    </div>
-    <div class="mt-2">
-      <div class="flex-between mb-1">
-        <span class="text-secondary" style="font-size:0.78rem;font-weight:700">Por vencer (7 días)</span>
-        <span class="badge ${data.porVencer > 0 ? 'badge-warning' : 'badge-success'}">${data.porVencer ?? 0}</span>
-      </div>
-    </div>
-  `;
-}
-
 </script>
-
 </body>
 </html>
